@@ -1,89 +1,86 @@
-import { createClient } from "@supabase/supabase-js";
+// Frontend storage: Notion via /api/trades, screenshots in localStorage.
+// Notion can't hold base64 images cleanly, so screenshots stay client-side.
 
-const URL = import.meta.env.VITE_SUPABASE_URL;
-const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const TABLE = "trades";
-const LS_KEY = "tj-trades-v2";
+const SHOTS_KEY = "tn-screenshots-v1";
+const CACHE_KEY = "tn-trades-cache-v1";
 
-export const supabase = URL && KEY ? createClient(URL, KEY) : null;
-export const useCloud = !!supabase;
+export const useCloud = true;
 
 export async function loadTrades() {
-  if (useCloud) {
-    const { data, error } = await supabase.from(TABLE).select("*").order("date", { ascending: true });
-    if (error) { console.error(error); return []; }
-    return (data || []).map(rowToTrade);
+  const shots = readShots();
+  try {
+    const r = await fetch("/api/trades");
+    if (!r.ok) throw new Error("api " + r.status);
+    const list = await r.json();
+    const merged = list.map(t => ({ ...t, screenshot: shots[t.id] || null }));
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch {}
+    return merged;
+  } catch (e) {
+    console.warn("Notion load failed, using cache:", e.message);
+    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "[]"); } catch { return []; }
   }
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
 }
 
-export async function saveTrade(trade) {
-  if (useCloud) {
-    const { error } = await supabase.from(TABLE).upsert(tradeToRow(trade));
-    if (error) console.error(error);
-    return;
+export async function saveTrade(t) {
+  const { screenshot, ...rest } = t;
+  saveShot(t.id, screenshot);
+  try {
+    const r = await fetch("/api/trades", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rest),
+    });
+    if (!r.ok) throw new Error("api " + r.status);
+  } catch (e) {
+    console.error("save failed:", e.message);
+    alert("Save to Notion failed. Check console.");
   }
-  const all = await loadTrades();
-  const idx = all.findIndex(t => t.id === trade.id);
-  if (idx >= 0) all[idx] = trade; else all.push(trade);
-  localStorage.setItem(LS_KEY, JSON.stringify(all));
+  cacheUpsert(t);
 }
 
 export async function saveAll(trades) {
-  if (useCloud) {
-    const { error } = await supabase.from(TABLE).upsert(trades.map(tradeToRow));
-    if (error) console.error(error);
-    return;
-  }
-  localStorage.setItem(LS_KEY, JSON.stringify(trades));
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(trades)); } catch {}
 }
 
 export async function removeTrade(id) {
-  if (useCloud) {
-    const { error } = await supabase.from(TABLE).delete().eq("id", id);
-    if (error) console.error(error);
-    return;
+  removeShot(id);
+  try {
+    const r = await fetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("api " + r.status);
+  } catch (e) {
+    console.error("delete failed:", e.message);
   }
-  const all = await loadTrades();
-  localStorage.setItem(LS_KEY, JSON.stringify(all.filter(t => t.id !== id)));
+  cacheRemove(id);
 }
 
-function tradeToRow(t) {
-  return {
-    id: t.id,
-    date: t.date,
-    time: t.time || null,
-    symbol: t.symbol,
-    direction: t.direction,
-    setup: t.setup,
-    entry: t.entry === "" ? null : Number(t.entry),
-    exit: t.exit === "" ? null : Number(t.exit),
-    size: t.size === "" ? null : Number(t.size),
-    pnl: t.pnl === "" ? null : Number(t.pnl),
-    r_multiple: t.rMultiple === "" ? null : Number(t.rMultiple),
-    grade: t.grade,
-    emotion: t.emotion,
-    notes: t.notes || null,
-    screenshot: t.screenshot || null,
-  };
+function readShots() {
+  try { return JSON.parse(localStorage.getItem(SHOTS_KEY) || "{}"); } catch { return {}; }
+}
+function saveShot(id, dataUrl) {
+  if (!dataUrl) return removeShot(id);
+  try {
+    const m = readShots(); m[id] = dataUrl;
+    localStorage.setItem(SHOTS_KEY, JSON.stringify(m));
+  } catch (e) { console.warn("screenshot save failed (quota?)", e); }
+}
+function removeShot(id) {
+  try {
+    const m = readShots(); delete m[id];
+    localStorage.setItem(SHOTS_KEY, JSON.stringify(m));
+  } catch {}
 }
 
-function rowToTrade(r) {
-  return {
-    id: Number(r.id),
-    date: r.date,
-    time: r.time || "",
-    symbol: r.symbol || "",
-    direction: r.direction || "Long",
-    setup: r.setup || "Breakout",
-    entry: r.entry == null ? "" : String(r.entry),
-    exit: r.exit == null ? "" : String(r.exit),
-    size: r.size == null ? "" : String(r.size),
-    pnl: r.pnl == null ? "" : String(r.pnl),
-    rMultiple: r.r_multiple == null ? "" : String(r.r_multiple),
-    grade: r.grade || "A",
-    emotion: r.emotion || "Neutral",
-    notes: r.notes || "",
-    screenshot: r.screenshot || null,
-  };
+function cacheUpsert(t) {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
+    const i = c.findIndex(x => x.id === t.id);
+    if (i >= 0) c[i] = t; else c.push(t);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+  } catch {}
+}
+function cacheRemove(id) {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]").filter(x => x.id !== id);
+    localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+  } catch {}
 }
