@@ -24,16 +24,15 @@ export async function loadTrades() {
 export async function saveTrade(t) {
   const { screenshot, ...rest } = t;
   saveShot(t.id, screenshot);
-  try {
-    const r = await fetch("/api/trades", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(rest),
-    });
-    if (!r.ok) throw new Error("api " + r.status);
-  } catch (e) {
-    console.error("save failed:", e.message);
-    alert("Save to Notion failed. Check console.");
+  const r = await fetch("/api/trades", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(rest),
+  });
+  if (!r.ok) {
+    let body = "";
+    try { body = await r.text(); } catch {}
+    throw new Error(`API ${r.status}: ${body.slice(0, 200) || r.statusText}`);
   }
   cacheUpsert(t);
 }
@@ -44,11 +43,11 @@ export async function saveAll(trades) {
 
 export async function removeTrade(id) {
   removeShot(id);
-  try {
-    const r = await fetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!r.ok) throw new Error("api " + r.status);
-  } catch (e) {
-    console.error("delete failed:", e.message);
+  const r = await fetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) {
+    let body = "";
+    try { body = await r.text(); } catch {}
+    throw new Error(`API ${r.status}: ${body.slice(0, 200) || r.statusText}`);
   }
   cacheRemove(id);
 }

@@ -177,7 +177,14 @@ function TradingJournal() {
     try { return sessionStorage.getItem(PIN_KEY) === "1"; } catch { return false; }
   });
   const [pendingAction, setPendingAction] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
   const fileRef = useRef();
+
+  const showToast = (msg, type="info") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const requireUnlock = (action) => {
     if (unlocked) action();
@@ -199,29 +206,53 @@ function TradingJournal() {
   }, []);
 
   const addTrade = async () => {
-    if (!form.symbol || !form.pnl) return;
+    if (!form.symbol) { showToast("Symbol is required", "err"); return; }
+    if (form.pnl === "" || form.pnl == null) { showToast("P&L is required", "err"); return; }
+    setSaving(true);
     const t = { ...form, id: Date.now() };
     const updated = [...trades, t].sort((a,b) => new Date(a.date)-new Date(b.date));
     setTrades(updated);
-    await saveTrade(t);
-    if (!useCloud) await saveAll(updated);
-    setForm(blank()); setView("journal");
+    try {
+      await saveTrade(t);
+      if (!useCloud) await saveAll(updated);
+      showToast("Saved to Notion ✓", "ok");
+      setForm(blank()); setView("journal");
+    } catch (e) {
+      console.error("save failed:", e);
+      showToast("Save failed: " + (e?.message || "unknown"), "err");
+      setTrades(trades);
+    } finally { setSaving(false); }
   };
 
   const updateTrade = async () => {
+    setSaving(true);
     const updated = trades.map(t => t.id === form.id ? form : t);
     setTrades(updated);
-    await saveTrade(form);
-    if (!useCloud) await saveAll(updated);
-    setSelected(form); setView("detail");
+    try {
+      await saveTrade(form);
+      if (!useCloud) await saveAll(updated);
+      showToast("Updated ✓", "ok");
+      setSelected(form); setView("detail");
+    } catch (e) {
+      console.error("update failed:", e);
+      showToast("Update failed: " + (e?.message || "unknown"), "err");
+    } finally { setSaving(false); }
   };
 
   const deleteTrade = async (id) => {
+    const prev = trades;
     const updated = trades.filter(t => t.id !== id);
     setTrades(updated);
-    await removeTrade(id);
-    if (!useCloud) await saveAll(updated);
-    setSelected(null); setView("journal");
+    try {
+      await removeTrade(id);
+      if (!useCloud) await saveAll(updated);
+      showToast("Deleted ✓", "ok");
+      setSelected(null); setView("journal");
+    } catch (e) {
+      console.error("delete failed:", e);
+      showToast("Delete failed: " + (e?.message || "unknown"), "err");
+      setTrades(prev);
+    }
   };
 
   const handleFile = (e) => {
@@ -615,10 +646,10 @@ function TradingJournal() {
             </div>
 
             <div style={{display:"flex",gap:10,marginTop:24}}>
-              <button style={S.primaryBtn} onClick={view==="edit"?updateTrade:addTrade}>
-                {view==="edit"?"Update Trade":"Save Trade"}
+              <button disabled={saving} style={{...S.primaryBtn,opacity:saving?0.6:1,cursor:saving?"wait":"pointer"}} onClick={view==="edit"?updateTrade:addTrade}>
+                {saving ? "Saving…" : (view==="edit"?"Update Trade":"Save Trade")}
               </button>
-              <button style={S.ghostBtn} onClick={()=>{if(view==="edit"){setView("detail");}else{setView("journal");}}}>Cancel</button>
+              <button disabled={saving} style={S.ghostBtn} onClick={()=>{if(view==="edit"){setView("detail");}else{setView("journal");}}}>Cancel</button>
             </div>
           </div>
         )}
@@ -692,6 +723,23 @@ function TradingJournal() {
           }}
           onCancel={() => setPendingAction(null)}
         />
+      )}
+
+      {toast && (
+        <div style={{
+          position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",
+          zIndex:2000,
+          background: toast.type==="ok" ? "rgba(0,229,160,0.12)" : toast.type==="err" ? "rgba(255,69,96,0.12)" : "#0f0f1a",
+          border: `1px solid ${toast.type==="ok" ? G : toast.type==="err" ? R : "#252535"}`,
+          color: toast.type==="ok" ? G : toast.type==="err" ? R : "#ccc",
+          padding:"12px 20px",borderRadius:8,
+          fontSize:13,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,
+          backdropFilter:"blur(8px)",
+          boxShadow:"0 8px 24px rgba(0,0,0,0.4)",
+          maxWidth:"90vw",wordBreak:"break-word"
+        }}>
+          {toast.msg}
+        </div>
       )}
     </div>
   );
