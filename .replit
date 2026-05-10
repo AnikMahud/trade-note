@@ -1,0 +1,15 @@
+run = "npm run dev"
+entrypoint = "src/App.jsx"
+modules = ["nodejs-20"]
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "npm run build && npm run preview"]
+deploymentTarget = "static"
+publicDir = "dist"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
