@@ -372,48 +372,91 @@ function TradingJournal() {
         input::placeholder, textarea::placeholder { color: #3a3a52; }
       `}</style>
 
-      <div style={S.header}>
-        <div style={{display:"flex",alignItems:"center",gap:8,position:"relative",flexShrink:0}}>
-          <div style={{
-            width:30,height:30,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
-            display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
-          }}>
-            <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,lineHeight:1}}>M</span>
+      {isMobile ? (
+        <>
+          <div style={{...S.header, justifyContent:"center", position:"relative"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{
+                width:28,height:28,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
+                display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
+              }}>
+                <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:15,lineHeight:1}}>M</span>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
+                <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
+              </div>
+            </div>
+            <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
+              {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
+              <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
+                background:unlocked?"rgba(201,168,64,0.08)":"transparent",
+                border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
+                padding:"5px 8px",color:unlocked?GOLD:"#666",fontSize:12,cursor:"pointer",
+                fontFamily:"'JetBrains Mono',monospace"
+              }}>{unlocked?"🔓":"🔒"}</button>
+            </div>
           </div>
-          {!isMobile && (
+          <div style={{
+            display:"flex",background:"#0b0b13",borderBottom:"1px solid #151520",
+            justifyContent:"space-around",flexShrink:0
+          }}>
+            {[["dashboard","Dashboard"],["journal","Journal"],["add","New Trade"]].map(([v,l])=>{
+              const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
+              return (
+                <button key={v} onClick={()=>{
+                  if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
+                  else setView(v);
+                }} style={{
+                  flex:1,background:"transparent",border:"none",
+                  padding:"10px 4px",
+                  color:active?"#e8e8f0":"#5a5a75",
+                  fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:active?700:500,
+                  cursor:"pointer",letterSpacing:0.3,
+                  borderBottom:`2px solid ${active?GOLD:"transparent"}`
+                }}>{l}</button>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div style={S.header}>
+          <div style={{display:"flex",alignItems:"center",gap:8,position:"relative",flexShrink:0}}>
+            <div style={{
+              width:30,height:30,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
+              display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
+            }}>
+              <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,lineHeight:1}}>M</span>
+            </div>
             <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
               <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
               <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
             </div>
-          )}
+          </div>
+          <div style={S.nav}>
+            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ New Trade"]].map(([v,l])=>(
+              <button key={v} onClick={()=>{
+                if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
+                else setView(v);
+              }} style={{...S.navBtn,
+                ...(view===v||((view==="detail"||view==="edit")&&v==="journal")?S.navBtnActive:{})}}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <div style={S.headerRight}>
+            {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:pnlColor(metrics.totalPnl),fontWeight:700}}>
+              {fmt$(metrics.totalPnl)}
+            </span>}
+            <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
+              background:unlocked?"rgba(201,168,64,0.08)":"transparent",
+              border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
+              padding:"5px 10px",color:unlocked?GOLD:"#666",fontSize:10,cursor:"pointer",
+              fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
+            }}>{unlocked?"🔓 UNLOCKED":"🔒 LOCKED"}</button>
+          </div>
         </div>
-        <div style={S.nav}>
-          {[["dashboard", isMobile?"◆":"◆ Dashboard"], ["journal", isMobile?"≡":"≡ Journal"], ["add", isMobile?"+":"+ New Trade"]].map(([v,l])=>(
-            <button key={v} onClick={()=>{
-              if (v === "add") {
-                requireUnlock(() => { setForm(blank()); setView("add"); });
-              } else {
-                setView(v);
-              }
-            }} style={{...S.navBtn,
-              ...(isMobile?{padding:"6px 10px",fontSize:14}:{}),
-              ...(view===v||((view==="detail"||view==="edit")&&v==="journal")?S.navBtnActive:{})}}>
-              {l}
-            </button>
-          ))}
-        </div>
-        <div style={S.headerRight}>
-          {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:pnlColor(metrics.totalPnl),fontWeight:700}}>
-            {fmt$(metrics.totalPnl)}
-          </span>}
-          <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
-            background:unlocked?"rgba(201,168,64,0.08)":"transparent",
-            border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
-            padding:isMobile?"5px 8px":"5px 10px",color:unlocked?GOLD:"#666",fontSize:10,cursor:"pointer",
-            fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
-          }}>{unlocked? (isMobile?"🔓":"🔓 UNLOCKED") : (isMobile?"🔒":"🔒 LOCKED")}</button>
-        </div>
-      </div>
+      )}
 
       <div style={S.body}>
         {view==="dashboard" && (
