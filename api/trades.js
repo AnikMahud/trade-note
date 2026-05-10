@@ -33,18 +33,19 @@ export default async function handler(req, res) {
       });
       const properties = tradeToProps(t);
       // Image handling:
-      // - screenshotUploadId provided (fresh upload) → set new file
-      // - screenshotClear === true → empty out
-      // - else → omit, leave existing as-is
-      if (t.screenshotUploadId) {
+      // - screenshotUploadIds (array) → set Image to those uploads (multi-image)
+      // - screenshotsTouched + empty/omitted ids → clear all
+      // - screenshotsTouched not set → preserve existing
+      const ids = Array.isArray(t.screenshotUploadIds) ? t.screenshotUploadIds.filter(Boolean) : [];
+      if (ids.length) {
         properties.Image = {
-          files: [{
+          files: ids.map((id, i) => ({
             type: "file_upload",
-            file_upload: { id: t.screenshotUploadId },
-            name: "screenshot.jpg",
-          }],
+            file_upload: { id },
+            name: `screenshot-${i + 1}.jpg`,
+          })),
         };
-      } else if (t.screenshotClear) {
+      } else if (t.screenshotsTouched) {
         properties.Image = { files: [] };
       }
       if (found.results[0]) {
@@ -135,15 +136,15 @@ function pageToTrade(p) {
     grade: pickSelect(x.Grade) || "A",
     emotion: pickSelect(x.Emotion) || "Neutral",
     notes: pickRT(x.Notes),
-    screenshot: pickFileUrl(x.Image),
+    screenshots: pickFileUrls(x.Image),
   };
 }
 
-function pickFileUrl(p) {
-  const f = p?.files?.[0];
-  if (!f) return null;
-  if (f.type === "file") return f.file?.url || null;
-  if (f.type === "external") return f.external?.url || null;
-  if (f.type === "file_upload") return null;
-  return null;
+function pickFileUrls(p) {
+  if (!p?.files?.length) return [];
+  return p.files.map(f => {
+    if (f.type === "file") return f.file?.url || null;
+    if (f.type === "external") return f.external?.url || null;
+    return null;
+  }).filter(Boolean);
 }

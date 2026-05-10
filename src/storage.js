@@ -19,24 +19,47 @@ export async function loadTrades() {
 
 export async function saveTrade(t) {
   const payload = { ...t };
+  const shots = Array.isArray(t.screenshots) ? t.screenshots : [];
 
-  if (payload.screenshot && payload.screenshot.startsWith("data:")) {
-    // Fresh upload: compress, push to /api/upload, attach id.
-    const compressed = await compressDataUrl(payload.screenshot, 1200, 0.7);
-    const up = await fetch("/api/upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl: compressed, filename: `trade-${t.id}.jpg` }),
-    });
-    if (!up.ok) {
-      let body = ""; try { body = await up.text(); } catch {}
-      throw new Error(`Upload ${up.status}: ${body.slice(0, 200)}`);
+  if (t.screenshotsTouched) {
+    // Re-upload every image in the order kept by the user.
+    // URL entries (existing Notion files) → refetched, recompressed, re-uploaded.
+    // dataURL entries (new uploads) → compressed + uploaded.
+    const ids = [];
+    for (let i = 0; i < shots.length; i++) {
+      const s = shots[i];
+      let dataUrl = s;
+      if (typeof s === "string" && !s.startsWith("data:")) {
+        try {
+          const blob = await (await fetch(s)).blob();
+          dataUrl = await new Promise((res, rej) => {
+            const fr = new FileReader();
+            fr.onload = e => res(e.target.result);
+            fr.onerror = rej;
+            fr.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.warn("could not refetch existing image at index", i, e);
+          continue;
+        }
+      }
+      const compressed = await compressDataUrl(dataUrl, 1200, 0.7);
+      const up = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: compressed, filename: `trade-${t.id}-${i + 1}.jpg` }),
+      });
+      if (!up.ok) {
+        let body = ""; try { body = await up.text(); } catch {}
+        throw new Error(`Upload ${up.status}: ${body.slice(0, 200)}`);
+      }
+      const j = await up.json();
+      ids.push(j.id);
     }
-    const j = await up.json();
-    payload.screenshotUploadId = j.id;
-    payload.screenshot = null; // server will not store dataUrl in Notion
-  } else if (payload.screenshot === null && t.screenshotWasCleared) {
-    payload.screenshotClear = true;
+    payload.screenshotUploadIds = ids;
+    payload.screenshotsTouched = true;
+  } else {
+    delete payload.screenshots;
   }
 
   const r = await fetch("/api/trades", {

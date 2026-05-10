@@ -30,7 +30,8 @@ const blank = () => ({
   grade: "A",
   emotion: "Neutral",
   notes: "",
-  screenshot: null,
+  screenshots: [],
+  screenshotsTouched: false,
 });
 
 const fmt$ = (n) => {
@@ -256,10 +257,29 @@ function TradingJournal() {
   };
 
   const handleFile = (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    const rd = new FileReader();
-    rd.onload = (ev) => setForm(p => ({...p, screenshot: ev.target.result}));
-    rd.readAsDataURL(f);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    Promise.all(files.map(f => new Promise((res, rej) => {
+      const rd = new FileReader();
+      rd.onload = ev => res(ev.target.result);
+      rd.onerror = rej;
+      rd.readAsDataURL(f);
+    }))).then(urls => {
+      setForm(p => ({
+        ...p,
+        screenshots: [...(p.screenshots || []), ...urls],
+        screenshotsTouched: true,
+      }));
+    }).catch(err => { console.error(err); showToast("Image read failed", "err"); });
+    e.target.value = "";
+  };
+
+  const removeScreenshot = (idx) => {
+    setForm(p => ({
+      ...p,
+      screenshots: (p.screenshots || []).filter((_, i) => i !== idx),
+      screenshotsTouched: true,
+    }));
   };
 
   const metrics = useMemo(() => {
@@ -564,7 +584,9 @@ function TradingJournal() {
                           <td style={{...S.td}}><span style={{...S.gradeBadge,...gradeStyle(t.grade)}}>{t.grade}</span></td>
                           <td style={{...S.td,fontSize:11,color:"#555"}}>{t.emotion}</td>
                           <td style={{...S.td,textAlign:"right"}}>
-                            {t.screenshot && <span style={{fontSize:10,color:GOLD}}>📷</span>}
+                            {(t.screenshots||[]).length > 0 && (
+                              <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace"}}>📷 {t.screenshots.length}</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -629,19 +651,30 @@ function TradingJournal() {
               </div>
 
               <div style={{gridColumn:"1/-1"}}>
-                <Field label="Screenshot (chart setup / result)">
-                  <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-                    <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFile}/>
+                <Field label={`Screenshots (chart setup / result) — ${(form.screenshots||[]).length} attached`}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-start"}}>
+                    <input ref={fileRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={handleFile}/>
                     <button style={{...S.uploadBtn}} onClick={()=>fileRef.current.click()}>
-                      {form.screenshot?"🔄 Replace Screenshot":"📷 Upload Screenshot"}
+                      📷 {(form.screenshots||[]).length ? "Add More" : "Upload Images"}
                     </button>
-                    {form.screenshot && (
-                      <div style={{position:"relative"}}>
-                        <img src={form.screenshot} alt="trade" style={{height:80,borderRadius:6,border:"1px solid #252535",cursor:"pointer"}} onClick={()=>fileRef.current.click()}/>
-                        <button onClick={()=>setForm(p=>({...p,screenshot:null}))} style={{position:"absolute",top:-6,right:-6,background:"#ff4560",border:"none",borderRadius:"50%",width:18,height:18,color:"#fff",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                    {(form.screenshots||[]).map((src, i) => (
+                      <div key={i} style={{position:"relative"}}>
+                        <img src={src} alt={`shot-${i+1}`}
+                          style={{height:80,width:80,objectFit:"cover",borderRadius:6,border:"1px solid #252535"}}
+                        />
+                        <button onClick={()=>removeScreenshot(i)} title="Remove" style={{
+                          position:"absolute",top:-6,right:-6,background:"#A56250",border:"none",
+                          borderRadius:"50%",width:20,height:20,color:"#fff",fontSize:12,cursor:"pointer",
+                          display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1
+                        }}>×</button>
                       </div>
-                    )}
+                    ))}
                   </div>
+                  {view==="edit" && (form.screenshots||[]).some(s=>typeof s==="string"&&!s.startsWith("data:")) && form.screenshotsTouched && (
+                    <div style={{fontSize:10,color:"#A56250",marginTop:8,fontFamily:"'JetBrains Mono',monospace"}}>
+                      ⚠ Editing images: existing Notion images will be re-uploaded as fresh copies.
+                    </div>
+                  )}
                 </Field>
               </div>
             </div>
@@ -699,14 +732,24 @@ function TradingJournal() {
                     <p style={{fontSize:13,color:"#8888a8",lineHeight:1.7,fontFamily:"'Manrope',sans-serif",whiteSpace:"pre-wrap"}}>{selected.notes}</p>
                   </div>
                 )}
-                {selected.screenshot && (
+                {(selected.screenshots||[]).length > 0 && (
                   <div style={S.card}>
-                    <div style={S.cardHeader}><span style={S.cardTitle}>Chart Screenshot</span></div>
-                    <img src={selected.screenshot} alt="chart" style={{width:"100%",borderRadius:6,border:"1px solid #1e1e2e",marginTop:4}}/>
+                    <div style={S.cardHeader}>
+                      <span style={S.cardTitle}>Chart Screenshots</span>
+                      <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>{selected.screenshots.length} {selected.screenshots.length===1?"image":"images"}</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:selected.screenshots.length===1?"1fr":"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:4}}>
+                      {selected.screenshots.map((src, i) => (
+                        <a key={i} href={src} target="_blank" rel="noreferrer" style={{display:"block",lineHeight:0}}>
+                          <img src={src} alt={`chart-${i+1}`}
+                            style={{width:"100%",borderRadius:6,border:"1px solid #1e1e2e",cursor:"zoom-in"}}/>
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {!selected.notes && !selected.screenshot && (
-                  <div style={{...S.card,color:"#333",fontSize:13,fontFamily:"'Manrope',sans-serif"}}>No notes or screenshot attached.</div>
+                {!selected.notes && (selected.screenshots||[]).length === 0 && (
+                  <div style={{...S.card,color:"#333",fontSize:13,fontFamily:"'Manrope',sans-serif"}}>No notes or screenshots attached.</div>
                 )}
               </div>
             </div>
