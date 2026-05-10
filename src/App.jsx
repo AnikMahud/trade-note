@@ -5,9 +5,9 @@ import {
 } from "recharts";
 import { loadTrades, saveTrade, saveAll, removeTrade, useCloud } from "./storage.js";
 
-const G = "#00E5A0";
-const R = "#FF4560";
-const GOLD = "#C9A840";
+const G = "#D4B86E";   // champagne — wins / positive
+const R = "#A56250";   // burnt sienna — losses / negative
+const GOLD = "#C9A840"; // brand accent
 const APP_PIN = import.meta.env.VITE_APP_PIN || "1234";
 const PIN_KEY = "tn-pin-ok";
 
@@ -338,6 +338,7 @@ function TradingJournal() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { background:#080810; height:100%; overscroll-behavior:none; -webkit-overflow-scrolling:touch; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0b0b13; }
         ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
         input, textarea, select { outline: none; }
@@ -760,14 +761,14 @@ function gradeStyle(g) {
 }
 
 const styles = {
-  root:{display:"flex",flexDirection:"column",height:"100vh",background:"#080810",color:"#e8e8f0",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
+  root:{display:"flex",flexDirection:"column",height:"100dvh",minHeight:"100vh",background:"#080810",color:"#e8e8f0",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
   header:{display:"flex",alignItems:"center",gap:24,padding:"0 24px",height:52,background:"#0b0b13",borderBottom:"1px solid #151520",flexShrink:0},
   logo:{display:"flex",alignItems:"center",gap:8},
   nav:{display:"flex",gap:4},
   navBtn:{background:"none",border:"none",color:"#4a4a65",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,padding:"6px 14px",borderRadius:6,cursor:"pointer",letterSpacing:0.3},
   navBtnActive:{color:"#e8e8f0",background:"#14141e"},
   headerRight:{marginLeft:"auto",display:"flex",alignItems:"center",gap:16},
-  body:{flex:1,overflowY:"auto",padding:24},
+  body:{flex:1,overflowY:"auto",overscrollBehavior:"contain",padding:24,paddingBottom:48},
   page:{maxWidth:1300,margin:"0 auto"},
   kpiRow:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16},
   kpiCard:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:"16px 20px"},

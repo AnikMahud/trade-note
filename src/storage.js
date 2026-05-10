@@ -1,20 +1,16 @@
-// Frontend storage: Notion via /api/trades, screenshots in localStorage.
-// Notion can't hold base64 images cleanly, so screenshots stay client-side.
+// Frontend storage: Notion via /api/trades. Screenshots compressed + chunked into rich_text.
 
-const SHOTS_KEY = "tn-screenshots-v1";
 const CACHE_KEY = "tn-trades-cache-v1";
 
 export const useCloud = true;
 
 export async function loadTrades() {
-  const shots = readShots();
   try {
     const r = await fetch("/api/trades");
     if (!r.ok) throw new Error("api " + r.status);
     const list = await r.json();
-    const merged = list.map(t => ({ ...t, screenshot: shots[t.id] || null }));
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(merged)); } catch {}
-    return merged;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch {}
+    return list;
   } catch (e) {
     console.warn("Notion load failed, using cache:", e.message);
     try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "[]"); } catch { return []; }
@@ -22,19 +18,52 @@ export async function loadTrades() {
 }
 
 export async function saveTrade(t) {
-  const { screenshot, ...rest } = t;
-  saveShot(t.id, screenshot);
+  const payload = { ...t };
+  if (payload.screenshot && payload.screenshot.startsWith("data:")) {
+    payload.screenshot = await compressDataUrl(payload.screenshot, 800, 0.55);
+  }
   const r = await fetch("/api/trades", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(rest),
+    body: JSON.stringify(payload),
   });
   if (!r.ok) {
     let body = "";
     try { body = await r.text(); } catch {}
     throw new Error(`API ${r.status}: ${body.slice(0, 200) || r.statusText}`);
   }
-  cacheUpsert(t);
+  cacheUpsert({ ...t, screenshot: payload.screenshot });
+}
+
+function compressDataUrl(dataUrl, maxW, q) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#0b0b13";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        let out = c.toDataURL("image/jpeg", q);
+        // If still too big for Notion (200KB-ish raw text), compress harder.
+        if (out.length > 190000) out = c.toDataURL("image/jpeg", 0.35);
+        if (out.length > 190000) {
+          const c2 = document.createElement("canvas");
+          c2.width = Math.round(w * 0.7); c2.height = Math.round(h * 0.7);
+          c2.getContext("2d").drawImage(img, 0, 0, c2.width, c2.height);
+          out = c2.toDataURL("image/jpeg", 0.4);
+        }
+        resolve(out);
+      } catch { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 export async function saveAll(trades) {
@@ -42,7 +71,6 @@ export async function saveAll(trades) {
 }
 
 export async function removeTrade(id) {
-  removeShot(id);
   const r = await fetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   if (!r.ok) {
     let body = "";
@@ -50,23 +78,6 @@ export async function removeTrade(id) {
     throw new Error(`API ${r.status}: ${body.slice(0, 200) || r.statusText}`);
   }
   cacheRemove(id);
-}
-
-function readShots() {
-  try { return JSON.parse(localStorage.getItem(SHOTS_KEY) || "{}"); } catch { return {}; }
-}
-function saveShot(id, dataUrl) {
-  if (!dataUrl) return removeShot(id);
-  try {
-    const m = readShots(); m[id] = dataUrl;
-    localStorage.setItem(SHOTS_KEY, JSON.stringify(m));
-  } catch (e) { console.warn("screenshot save failed (quota?)", e); }
-}
-function removeShot(id) {
-  try {
-    const m = readShots(); delete m[id];
-    localStorage.setItem(SHOTS_KEY, JSON.stringify(m));
-  } catch {}
 }
 
 function cacheUpsert(t) {

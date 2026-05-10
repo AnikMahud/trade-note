@@ -61,7 +61,17 @@ export default async function handler(req, res) {
 }
 
 function rt(s) { return s ? [{ text: { content: String(s).slice(0, 1990) } }] : []; }
+function rtChunked(s) {
+  if (!s) return [];
+  const out = [];
+  const str = String(s);
+  for (let i = 0; i < str.length && out.length < 100; i += 1990) {
+    out.push({ text: { content: str.slice(i, i + 1990) } });
+  }
+  return out;
+}
 function pickRT(p) { return p?.rich_text?.[0]?.plain_text || ""; }
+function pickRTAll(p) { return (p?.rich_text || []).map(r => r.plain_text || "").join(""); }
 function pickTitle(p) { return p?.title?.[0]?.plain_text || ""; }
 function pickSelect(p) { return p?.select?.name || ""; }
 function pickNum(p) { return p?.number ?? null; }
@@ -88,7 +98,8 @@ function tradeToProps(t) {
     "RMultiple": { number: num(t.rMultiple) },
     "Grade":     { select: { name: t.grade || "A" } },
     "Emotion":   { select: { name: t.emotion || "Neutral" } },
-    "Notes":     { rich_text: rt(t.notes) },
+    "Notes":      { rich_text: rt(t.notes) },
+    "Screenshot": { rich_text: rtChunked(t.screenshot) },
   };
 }
 
@@ -110,6 +121,6 @@ function pageToTrade(p) {
     grade: pickSelect(x.Grade) || "A",
     emotion: pickSelect(x.Emotion) || "Neutral",
     notes: pickRT(x.Notes),
-    screenshot: null,
+    screenshot: pickRTAll(x.Screenshot) || null,
   };
 }
