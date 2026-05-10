@@ -8,6 +8,8 @@ import { loadTrades, saveTrade, saveAll, removeTrade, useCloud } from "./storage
 const G = "#00E5A0";
 const R = "#FF4560";
 const GOLD = "#C9A840";
+const APP_PIN = import.meta.env.VITE_APP_PIN || "1234";
+const PIN_KEY = "tn-pin-ok";
 
 const SETUPS = ["Breakout","Pullback","Reversal","Momentum","Gap Fill","VWAP Reclaim","Support/Resistance","Earnings","Scalp","Other"];
 const EMOTIONS = ["Disciplined","Confident","Neutral","Anxious","FOMO","Revenge","Impatient","Overconfident"];
@@ -41,7 +43,117 @@ const fmtN = (n, d=2) => {
 };
 const pnlColor = (n) => (parseFloat(n) || 0) >= 0 ? G : R;
 
-export default function TradingJournal() {
+export default function App() {
+  const [unlocked, setUnlocked] = useState(() => {
+    try { return sessionStorage.getItem(PIN_KEY) === "1"; } catch { return false; }
+  });
+  if (!unlocked) return <PinGate onPass={() => setUnlocked(true)} />;
+  return <TradingJournal onLock={() => { sessionStorage.removeItem(PIN_KEY); setUnlocked(false); }} />;
+}
+
+function PinGate({ onPass }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState(false);
+  const [shake, setShake] = useState(false);
+  const submit = () => {
+    if (pin === APP_PIN) {
+      try { sessionStorage.setItem(PIN_KEY, "1"); } catch {}
+      onPass();
+    } else {
+      setErr(true); setShake(true);
+      setTimeout(() => setShake(false), 400);
+      setPin("");
+    }
+  };
+  return (
+    <div style={{
+      minHeight:"100vh",background:"radial-gradient(ellipse at top, #14141e 0%, #080810 60%)",
+      display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Manrope',sans-serif"
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,400;1,500&display=swap');
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+        .pin-shake { animation: shake 0.4s ease; }
+      `}</style>
+      <div className={shake?"pin-shake":""} style={{textAlign:"center",padding:40}}>
+        <Brand size="hero"/>
+        <div style={{margin:"36px auto 0",maxWidth:280}}>
+          <input
+            type="password" inputMode="numeric" autoFocus value={pin}
+            onChange={e=>{setPin(e.target.value);setErr(false);}}
+            onKeyDown={e=>e.key==="Enter"&&submit()}
+            placeholder="• • • •"
+            style={{
+              width:"100%",background:"#0b0b13",border:`1px solid ${err?R:"#252535"}`,
+              borderRadius:8,padding:"14px 16px",color:GOLD,
+              fontSize:22,fontFamily:"'JetBrains Mono',monospace",
+              textAlign:"center",letterSpacing:8,outline:"none"
+            }}
+          />
+          <button onClick={submit} style={{
+            width:"100%",marginTop:12,background:GOLD,border:"none",borderRadius:8,
+            padding:"12px",color:"#0a0a0a",fontWeight:700,fontSize:13,cursor:"pointer",
+            letterSpacing:1,textTransform:"uppercase"
+          }}>Enter</button>
+          {err && <div style={{color:R,fontSize:11,marginTop:10,fontFamily:"'JetBrains Mono',monospace"}}>incorrect pin</div>}
+        </div>
+        <div style={{marginTop:32,fontSize:10,color:"#3a3a55",fontFamily:"'JetBrains Mono',monospace",letterSpacing:2}}>PRIVATE · AUTHORIZED ACCESS</div>
+      </div>
+    </div>
+  );
+}
+
+function Brand({size="header", showLock=false, onLock}) {
+  const hero = size==="hero";
+  return (
+    <div style={{display:"inline-flex",flexDirection:"column",alignItems:"center",gap:hero?10:0}}>
+      <div style={{
+        width:hero?56:30,height:hero?56:30,
+        border:`1px solid ${GOLD}`,
+        transform:"rotate(45deg)",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        background:"rgba(201,168,64,0.04)"
+      }}>
+        <span style={{
+          transform:"rotate(-45deg)",
+          color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",
+          fontWeight:500,fontSize:hero?28:16,lineHeight:1
+        }}>M</span>
+      </div>
+      {hero ? (
+        <>
+          <div style={{
+            fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,
+            fontSize:34,color:"#e8e8f0",letterSpacing:1,lineHeight:1,marginTop:6
+          }}>Mahmudur</div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginTop:2}}>
+            <div style={{width:30,height:1,background:GOLD,opacity:0.5}}/>
+            <span style={{
+              fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:11,
+              color:GOLD,letterSpacing:6,textTransform:"uppercase"
+            }}>Trade Note</span>
+            <div style={{width:30,height:1,background:GOLD,opacity:0.5}}/>
+          </div>
+          <div style={{fontSize:9,color:"#3a3a55",letterSpacing:3,fontFamily:"'JetBrains Mono',monospace",marginTop:8}}>EST · MMXXVI</div>
+        </>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",marginLeft:10,position:"absolute",left:64,top:10}}>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:15,color:"#e8e8f0",lineHeight:1}}>Mahmudur</span>
+          <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
+        </div>
+      )}
+      {showLock && (
+        <button onClick={onLock} title="Lock" style={{
+          position:"absolute",right:24,top:14,background:"transparent",border:"1px solid #252535",
+          borderRadius:6,padding:"5px 10px",color:"#666",fontSize:10,cursor:"pointer",
+          fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
+        }}>LOCK</button>
+      )}
+    </div>
+  );
+}
+
+function TradingJournal({ onLock }) {
   const [trades, setTrades] = useState([]);
   const [view, setView] = useState("dashboard");
   const [form, setForm] = useState(blank());
@@ -167,7 +279,7 @@ export default function TradingJournal() {
   return (
     <div style={S.root}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0b0b13; }
         ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
@@ -176,10 +288,17 @@ export default function TradingJournal() {
       `}</style>
 
       <div style={S.header}>
-        <div style={S.logo}>
-          <span style={{color:GOLD,fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:18,letterSpacing:-0.5}}>▲</span>
-          <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:16,letterSpacing:-0.3,color:"#e8e8f0"}}>TradeLog</span>
-          <span style={{fontSize:10,color:"#3a3a55",fontFamily:"'JetBrains Mono',monospace",marginLeft:4}}>PRO</span>
+        <div style={{display:"flex",alignItems:"center",gap:10,position:"relative",minWidth:200}}>
+          <div style={{
+            width:30,height:30,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
+            display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
+          }}>
+            <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,lineHeight:1}}>M</span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
+            <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
+          </div>
           {!useCloud && <span style={{fontSize:9,color:R,fontFamily:"'JetBrains Mono',monospace",marginLeft:8,padding:"2px 6px",border:`1px solid ${R}55`,borderRadius:4}}>LOCAL</span>}
         </div>
         <div style={S.nav}>
@@ -194,6 +313,11 @@ export default function TradingJournal() {
           {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:pnlColor(metrics.totalPnl),fontWeight:700}}>
             {fmt$(metrics.totalPnl)}
           </span>}
+          <button onClick={onLock} title="Lock session" style={{
+            background:"transparent",border:"1px solid #252535",borderRadius:6,
+            padding:"5px 10px",color:"#666",fontSize:10,cursor:"pointer",
+            fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
+          }}>🔒 LOCK</button>
         </div>
       </div>
 
