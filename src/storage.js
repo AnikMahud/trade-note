@@ -19,9 +19,26 @@ export async function loadTrades() {
 
 export async function saveTrade(t) {
   const payload = { ...t };
+
   if (payload.screenshot && payload.screenshot.startsWith("data:")) {
-    payload.screenshot = await compressDataUrl(payload.screenshot, 800, 0.55);
+    // Fresh upload: compress, push to /api/upload, attach id.
+    const compressed = await compressDataUrl(payload.screenshot, 1200, 0.7);
+    const up = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl: compressed, filename: `trade-${t.id}.jpg` }),
+    });
+    if (!up.ok) {
+      let body = ""; try { body = await up.text(); } catch {}
+      throw new Error(`Upload ${up.status}: ${body.slice(0, 200)}`);
+    }
+    const j = await up.json();
+    payload.screenshotUploadId = j.id;
+    payload.screenshot = null; // server will not store dataUrl in Notion
+  } else if (payload.screenshot === null && t.screenshotWasCleared) {
+    payload.screenshotClear = true;
   }
+
   const r = await fetch("/api/trades", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -32,7 +49,7 @@ export async function saveTrade(t) {
     try { body = await r.text(); } catch {}
     throw new Error(`API ${r.status}: ${body.slice(0, 200) || r.statusText}`);
   }
-  cacheUpsert({ ...t, screenshot: payload.screenshot });
+  cacheUpsert(t);
 }
 
 function compressDataUrl(dataUrl, maxW, q) {

@@ -32,6 +32,21 @@ export default async function handler(req, res) {
         filter: { property: "ID", title: { equals: String(t.id) } },
       });
       const properties = tradeToProps(t);
+      // Image handling:
+      // - screenshotUploadId provided (fresh upload) → set new file
+      // - screenshotClear === true → empty out
+      // - else → omit, leave existing as-is
+      if (t.screenshotUploadId) {
+        properties.Image = {
+          files: [{
+            type: "file_upload",
+            file_upload: { id: t.screenshotUploadId },
+            name: "screenshot.jpg",
+          }],
+        };
+      } else if (t.screenshotClear) {
+        properties.Image = { files: [] };
+      }
       if (found.results[0]) {
         await notion.pages.update({ page_id: found.results[0].id, properties });
       } else {
@@ -99,7 +114,6 @@ function tradeToProps(t) {
     "Grade":     { select: { name: t.grade || "A" } },
     "Emotion":   { select: { name: t.emotion || "Neutral" } },
     "Notes":      { rich_text: rt(t.notes) },
-    "Screenshot": { rich_text: rtChunked(t.screenshot) },
   };
 }
 
@@ -121,6 +135,15 @@ function pageToTrade(p) {
     grade: pickSelect(x.Grade) || "A",
     emotion: pickSelect(x.Emotion) || "Neutral",
     notes: pickRT(x.Notes),
-    screenshot: pickRTAll(x.Screenshot) || null,
+    screenshot: pickFileUrl(x.Image),
   };
+}
+
+function pickFileUrl(p) {
+  const f = p?.files?.[0];
+  if (!f) return null;
+  if (f.type === "file") return f.file?.url || null;
+  if (f.type === "external") return f.external?.url || null;
+  if (f.type === "file_upload") return null;
+  return null;
 }
