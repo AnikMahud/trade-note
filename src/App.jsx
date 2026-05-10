@@ -78,14 +78,8 @@ function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to
         padding:32,minWidth:300,textAlign:"center",
         boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
       }}>
-        <div style={{
-          width:42,height:42,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
-          display:"inline-flex",alignItems:"center",justifyContent:"center",
-          background:"rgba(201,168,64,0.05)",marginBottom:16
-        }}>
-          <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:22,lineHeight:1}}>M</span>
-        </div>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:22,color:"#e8e8f0",lineHeight:1.2}}>{title}</div>
+        <img src="/logo.png" alt="Mahmudur TradeVault" style={{width:160,height:"auto",objectFit:"contain",marginBottom:8}}/>
+        <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:14,color:"#e8e8f0",lineHeight:1.2,marginTop:4}}>{title}</div>
         <div style={{fontSize:11,color:"#5a5a75",marginTop:6,letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{subtitle}</div>
         <input
           type="password" inputMode="numeric" autoFocus value={pin}
@@ -375,18 +369,7 @@ function TradingJournal() {
       {isMobile ? (
         <>
           <div style={{...S.header, justifyContent:"center", position:"relative"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{
-                width:28,height:28,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
-                display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
-              }}>
-                <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:15,lineHeight:1}}>M</span>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
-                <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
-              </div>
-            </div>
+            <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
             <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
               {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
               <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
@@ -422,16 +405,7 @@ function TradingJournal() {
       ) : (
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:8,position:"relative",flexShrink:0}}>
-            <div style={{
-              width:30,height:30,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
-              display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
-            }}>
-              <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,lineHeight:1}}>M</span>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
-              <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
-            </div>
+            <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
             {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ New Trade"]].map(([v,l])=>(
