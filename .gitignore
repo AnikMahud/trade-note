@@ -6,4 +6,5 @@ dist
 .replit_cache
 .cache
 .upm
+.vercel
 *.log

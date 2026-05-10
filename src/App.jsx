@@ -44,14 +44,10 @@ const fmtN = (n, d=2) => {
 const pnlColor = (n) => (parseFloat(n) || 0) >= 0 ? G : R;
 
 export default function App() {
-  const [unlocked, setUnlocked] = useState(() => {
-    try { return sessionStorage.getItem(PIN_KEY) === "1"; } catch { return false; }
-  });
-  if (!unlocked) return <PinGate onPass={() => setUnlocked(true)} />;
-  return <TradingJournal onLock={() => { sessionStorage.removeItem(PIN_KEY); setUnlocked(false); }} />;
+  return <TradingJournal />;
 }
 
-function PinGate({ onPass }) {
+function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to add or modify trades" }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
   const [shake, setShake] = useState(false);
@@ -67,37 +63,54 @@ function PinGate({ onPass }) {
   };
   return (
     <div style={{
-      minHeight:"100vh",background:"radial-gradient(ellipse at top, #14141e 0%, #080810 60%)",
-      display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Manrope',sans-serif"
-    }}>
+      position:"fixed",inset:0,zIndex:1000,
+      background:"rgba(8,8,16,0.85)",backdropFilter:"blur(6px)",
+      display:"flex",alignItems:"center",justifyContent:"center",
+      fontFamily:"'Manrope',sans-serif"
+    }} onClick={onCancel}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,400;1,500&display=swap');
-        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
-        .pin-shake { animation: shake 0.4s ease; }
+        @keyframes pinShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+        .pin-shake { animation: pinShake 0.4s ease; }
       `}</style>
-      <div className={shake?"pin-shake":""} style={{textAlign:"center",padding:40}}>
-        <Brand size="hero"/>
-        <div style={{margin:"36px auto 0",maxWidth:280}}>
-          <input
-            type="password" inputMode="numeric" autoFocus value={pin}
-            onChange={e=>{setPin(e.target.value);setErr(false);}}
-            onKeyDown={e=>e.key==="Enter"&&submit()}
-            placeholder="• • • •"
-            style={{
-              width:"100%",background:"#0b0b13",border:`1px solid ${err?R:"#252535"}`,
-              borderRadius:8,padding:"14px 16px",color:GOLD,
-              fontSize:22,fontFamily:"'JetBrains Mono',monospace",
-              textAlign:"center",letterSpacing:8,outline:"none"
-            }}
-          />
-          <button onClick={submit} style={{
-            width:"100%",marginTop:12,background:GOLD,border:"none",borderRadius:8,
-            padding:"12px",color:"#0a0a0a",fontWeight:700,fontSize:13,cursor:"pointer",
-            letterSpacing:1,textTransform:"uppercase"
-          }}>Enter</button>
-          {err && <div style={{color:R,fontSize:11,marginTop:10,fontFamily:"'JetBrains Mono',monospace"}}>incorrect pin</div>}
+      <div className={shake?"pin-shake":""} onClick={e=>e.stopPropagation()} style={{
+        background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:14,
+        padding:32,minWidth:300,textAlign:"center",
+        boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
+      }}>
+        <div style={{
+          width:42,height:42,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
+          display:"inline-flex",alignItems:"center",justifyContent:"center",
+          background:"rgba(201,168,64,0.05)",marginBottom:16
+        }}>
+          <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:22,lineHeight:1}}>M</span>
         </div>
-        <div style={{marginTop:32,fontSize:10,color:"#3a3a55",fontFamily:"'JetBrains Mono',monospace",letterSpacing:2}}>PRIVATE · AUTHORIZED ACCESS</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:22,color:"#e8e8f0",lineHeight:1.2}}>{title}</div>
+        <div style={{fontSize:11,color:"#5a5a75",marginTop:6,letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{subtitle}</div>
+        <input
+          type="password" inputMode="numeric" autoFocus value={pin}
+          onChange={e=>{setPin(e.target.value);setErr(false);}}
+          onKeyDown={e=>{if(e.key==="Enter")submit();if(e.key==="Escape")onCancel();}}
+          placeholder="• • • •"
+          style={{
+            width:"100%",marginTop:20,background:"#0b0b13",border:`1px solid ${err?R:"#252535"}`,
+            borderRadius:8,padding:"14px 16px",color:GOLD,
+            fontSize:22,fontFamily:"'JetBrains Mono',monospace",
+            textAlign:"center",letterSpacing:8,outline:"none"
+          }}
+        />
+        <div style={{display:"flex",gap:8,marginTop:12}}>
+          <button onClick={onCancel} style={{
+            flex:1,background:"transparent",border:"1px solid #252535",borderRadius:8,
+            padding:"11px",color:"#666",fontWeight:600,fontSize:12,cursor:"pointer",
+            letterSpacing:1,textTransform:"uppercase",fontFamily:"'Manrope',sans-serif"
+          }}>Cancel</button>
+          <button onClick={submit} style={{
+            flex:2,background:GOLD,border:"none",borderRadius:8,
+            padding:"11px",color:"#0a0a0a",fontWeight:700,fontSize:12,cursor:"pointer",
+            letterSpacing:1,textTransform:"uppercase",fontFamily:"'Manrope',sans-serif"
+          }}>Confirm</button>
+        </div>
+        {err && <div style={{color:R,fontSize:11,marginTop:10,fontFamily:"'JetBrains Mono',monospace"}}>incorrect pin</div>}
       </div>
     </div>
   );
@@ -153,14 +166,27 @@ function Brand({size="header", showLock=false, onLock}) {
   );
 }
 
-function TradingJournal({ onLock }) {
+function TradingJournal() {
   const [trades, setTrades] = useState([]);
   const [view, setView] = useState("dashboard");
   const [form, setForm] = useState(blank());
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState({ symbol: "", dir: "All", result: "All", setup: "All" });
   const [loaded, setLoaded] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => {
+    try { return sessionStorage.getItem(PIN_KEY) === "1"; } catch { return false; }
+  });
+  const [pendingAction, setPendingAction] = useState(null);
   const fileRef = useRef();
+
+  const requireUnlock = (action) => {
+    if (unlocked) action();
+    else setPendingAction(() => action);
+  };
+  const lock = () => {
+    try { sessionStorage.removeItem(PIN_KEY); } catch {}
+    setUnlocked(false);
+  };
 
   useEffect(() => {
     (async () => {
@@ -303,7 +329,13 @@ function TradingJournal({ onLock }) {
         </div>
         <div style={S.nav}>
           {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ New Trade"]].map(([v,l])=>(
-            <button key={v} onClick={()=>{if(v==="add")setForm(blank());setView(v);}} style={{...S.navBtn,
+            <button key={v} onClick={()=>{
+              if (v === "add") {
+                requireUnlock(() => { setForm(blank()); setView("add"); });
+              } else {
+                setView(v);
+              }
+            }} style={{...S.navBtn,
               ...(view===v||((view==="detail"||view==="edit")&&v==="journal")?S.navBtnActive:{})}}>
               {l}
             </button>
@@ -313,11 +345,12 @@ function TradingJournal({ onLock }) {
           {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:pnlColor(metrics.totalPnl),fontWeight:700}}>
             {fmt$(metrics.totalPnl)}
           </span>}
-          <button onClick={onLock} title="Lock session" style={{
-            background:"transparent",border:"1px solid #252535",borderRadius:6,
-            padding:"5px 10px",color:"#666",fontSize:10,cursor:"pointer",
+          <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
+            background:unlocked?"rgba(201,168,64,0.08)":"transparent",
+            border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
+            padding:"5px 10px",color:unlocked?GOLD:"#666",fontSize:10,cursor:"pointer",
             fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
-          }}>🔒 LOCK</button>
+          }}>{unlocked?"🔓 UNLOCKED":"🔒 LOCKED"}</button>
         </div>
       </div>
 
@@ -329,7 +362,7 @@ function TradingJournal({ onLock }) {
                 <div style={{fontSize:48,marginBottom:16}}>📊</div>
                 <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:20,color:"#e8e8f0",marginBottom:8}}>No trades yet</div>
                 <div style={{color:"#555",fontSize:13,marginBottom:24}}>Start logging your trades to see advanced analytics</div>
-                <button style={S.primaryBtn} onClick={()=>{setForm(blank());setView("add");}}>Log First Trade</button>
+                <button style={S.primaryBtn} onClick={()=>requireUnlock(()=>{setForm(blank());setView("add");})}>Log First Trade</button>
               </div>
             ) : (
               <>
@@ -603,8 +636,8 @@ function TradingJournal({ onLock }) {
               <div style={{...S.card,flex:1,minWidth:280}}>
                 <div style={S.cardHeader}><span style={S.cardTitle}>Trade Details</span>
                   <div style={{display:"flex",gap:6}}>
-                    <button style={{...S.ghostBtn,padding:"4px 10px",fontSize:11}} onClick={()=>{setForm({...selected});setView("edit");}}>Edit</button>
-                    <button style={{...S.ghostBtn,padding:"4px 10px",fontSize:11,color:R,borderColor:R}} onClick={()=>deleteTrade(selected.id)}>Delete</button>
+                    <button style={{...S.ghostBtn,padding:"4px 10px",fontSize:11}} onClick={()=>requireUnlock(()=>{setForm({...selected});setView("edit");})}>Edit</button>
+                    <button style={{...S.ghostBtn,padding:"4px 10px",fontSize:11,color:R,borderColor:R}} onClick={()=>requireUnlock(()=>deleteTrade(selected.id))}>Delete</button>
                   </div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -648,6 +681,18 @@ function TradingJournal({ onLock }) {
           </div>
         )}
       </div>
+
+      {pendingAction && (
+        <PinModal
+          onPass={() => {
+            setUnlocked(true);
+            const fn = pendingAction;
+            setPendingAction(null);
+            try { fn(); } catch (e) { console.error(e); }
+          }}
+          onCancel={() => setPendingAction(null)}
+        />
+      )}
     </div>
   );
 }
