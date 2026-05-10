@@ -180,6 +180,13 @@ function TradingJournal() {
   const [pendingAction, setPendingAction] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [lightbox, setLightbox] = useState(null); // {urls:[], index:0}
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const fileRef = useRef();
 
   const showToast = (msg, type="info") => {
@@ -366,21 +373,22 @@ function TradingJournal() {
       `}</style>
 
       <div style={S.header}>
-        <div style={{display:"flex",alignItems:"center",gap:10,position:"relative",minWidth:200}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,position:"relative",flexShrink:0}}>
           <div style={{
             width:30,height:30,border:`1px solid ${GOLD}`,transform:"rotate(45deg)",
             display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(201,168,64,0.05)"
           }}>
             <span style={{transform:"rotate(-45deg)",color:GOLD,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,lineHeight:1}}>M</span>
           </div>
-          <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
-            <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
-          </div>
-          {!useCloud && <span style={{fontSize:9,color:R,fontFamily:"'JetBrains Mono',monospace",marginLeft:8,padding:"2px 6px",border:`1px solid ${R}55`,borderRadius:4}}>LOCAL</span>}
+          {!isMobile && (
+            <div style={{display:"flex",flexDirection:"column",lineHeight:1}}>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:16,color:"#e8e8f0"}}>Mahmudur</span>
+              <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
+            </div>
+          )}
         </div>
         <div style={S.nav}>
-          {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ New Trade"]].map(([v,l])=>(
+          {[["dashboard", isMobile?"◆":"◆ Dashboard"], ["journal", isMobile?"≡":"≡ Journal"], ["add", isMobile?"+":"+ New Trade"]].map(([v,l])=>(
             <button key={v} onClick={()=>{
               if (v === "add") {
                 requireUnlock(() => { setForm(blank()); setView("add"); });
@@ -388,6 +396,7 @@ function TradingJournal() {
                 setView(v);
               }
             }} style={{...S.navBtn,
+              ...(isMobile?{padding:"6px 10px",fontSize:14}:{}),
               ...(view===v||((view==="detail"||view==="edit")&&v==="journal")?S.navBtnActive:{})}}>
               {l}
             </button>
@@ -400,9 +409,9 @@ function TradingJournal() {
           <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
             background:unlocked?"rgba(201,168,64,0.08)":"transparent",
             border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
-            padding:"5px 10px",color:unlocked?GOLD:"#666",fontSize:10,cursor:"pointer",
+            padding:isMobile?"5px 8px":"5px 10px",color:unlocked?GOLD:"#666",fontSize:10,cursor:"pointer",
             fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
-          }}>{unlocked?"🔓 UNLOCKED":"🔒 LOCKED"}</button>
+          }}>{unlocked? (isMobile?"🔓":"🔓 UNLOCKED") : (isMobile?"🔒":"🔒 LOCKED")}</button>
         </div>
       </div>
 
@@ -434,7 +443,7 @@ function TradingJournal() {
                 </div>
 
                 <div style={S.chartsRow}>
-                  <div style={{...S.card, flex:2}}>
+                  <div style={{...S.card, flex:"2 1 320px", minWidth:280}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Equity Curve</span>
                       <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>cumulative P&L</span>
@@ -457,7 +466,7 @@ function TradingJournal() {
                     </ResponsiveContainer>
                   </div>
 
-                  <div style={{...S.card, flex:1.5}}>
+                  <div style={{...S.card, flex:"1.5 1 280px", minWidth:260}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Daily P&L</span>
                       <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>last 30 days</span>
@@ -478,7 +487,7 @@ function TradingJournal() {
                 </div>
 
                 <div style={S.chartsRow}>
-                  <div style={{...S.card,flex:1}}>
+                  <div style={{...S.card, flex:"1 1 260px", minWidth:240}}>
                     <div style={S.cardHeader}><span style={S.cardTitle}>Advanced Metrics</span></div>
                     <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
                       {[
@@ -499,7 +508,7 @@ function TradingJournal() {
                     </div>
                   </div>
 
-                  <div style={{...S.card,flex:1.4}}>
+                  <div style={{...S.card, flex:"1.4 1 280px", minWidth:260}}>
                     <div style={S.cardHeader}><span style={S.cardTitle}>Top Symbols</span></div>
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={metrics.symbols} layout="vertical" margin={{top:0,right:10,left:10,bottom:0}}>
@@ -514,7 +523,7 @@ function TradingJournal() {
                     </ResponsiveContainer>
                   </div>
 
-                  <div style={{...S.card,flex:1.2}}>
+                  <div style={{...S.card, flex:"1.2 1 260px", minWidth:240}}>
                     <div style={S.cardHeader}><span style={S.cardTitle}>Setup Performance</span></div>
                     <div style={{overflowY:"auto",maxHeight:210,marginTop:4}}>
                       {metrics.setupPerf.map(s=>(
@@ -738,12 +747,13 @@ function TradingJournal() {
                       <span style={S.cardTitle}>Chart Screenshots</span>
                       <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>{selected.screenshots.length} {selected.screenshots.length===1?"image":"images"}</span>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:selected.screenshots.length===1?"1fr":"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginTop:4}}>
+                    <div style={{display:"grid",gridTemplateColumns:selected.screenshots.length===1?"1fr":"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginTop:4}}>
                       {selected.screenshots.map((src, i) => (
-                        <a key={i} href={src} target="_blank" rel="noreferrer" style={{display:"block",lineHeight:0}}>
+                        <div key={i} onClick={()=>setLightbox({urls:selected.screenshots,index:i})}
+                          style={{display:"block",lineHeight:0,cursor:"zoom-in"}}>
                           <img src={src} alt={`chart-${i+1}`}
-                            style={{width:"100%",borderRadius:6,border:"1px solid #1e1e2e",cursor:"zoom-in"}}/>
-                        </a>
+                            style={{width:"100%",borderRadius:6,border:"1px solid #1e1e2e"}}/>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -756,6 +766,15 @@ function TradingJournal() {
           </div>
         )}
       </div>
+
+      {lightbox && (
+        <Lightbox
+          urls={lightbox.urls}
+          index={lightbox.index}
+          onChange={(i)=>setLightbox(l=>l?{...l,index:i}:l)}
+          onClose={()=>setLightbox(null)}
+        />
+      )}
 
       {pendingAction && (
         <PinModal
@@ -789,6 +808,66 @@ function TradingJournal() {
   );
 }
 
+function Lightbox({ urls, index, onChange, onClose }) {
+  const total = urls.length;
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight" && total > 1) onChange((index + 1) % total);
+      else if (e.key === "ArrowLeft" && total > 1) onChange((index - 1 + total) % total);
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [index, total, onChange, onClose]);
+  const prev = () => onChange((index - 1 + total) % total);
+  const next = () => onChange((index + 1) % total);
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:1500,background:"rgba(0,0,0,0.95)",
+      display:"flex",alignItems:"center",justifyContent:"center",
+      padding:"60px 12px 24px"
+    }}>
+      <button onClick={(e)=>{e.stopPropagation();onClose();}} style={{
+        position:"fixed",top:14,left:14,zIndex:1600,
+        background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:8,
+        padding:"10px 16px",color:"#e8e8f0",fontSize:13,cursor:"pointer",
+        fontFamily:"'Manrope',sans-serif",fontWeight:600,letterSpacing:0.5,
+        display:"flex",alignItems:"center",gap:6,backdropFilter:"blur(8px)"
+      }}>← Back</button>
+      <div style={{
+        position:"fixed",top:14,right:14,zIndex:1600,
+        background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:8,
+        padding:"10px 12px",color:GOLD,fontSize:11,
+        fontFamily:"'JetBrains Mono',monospace",backdropFilter:"blur(8px)"
+      }}>{index+1} / {total}</div>
+      <img onClick={(e)=>e.stopPropagation()} src={urls[index]} alt={`image-${index+1}`}
+        style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:6,boxShadow:"0 10px 40px rgba(0,0,0,0.6)"}}/>
+      {total > 1 && (
+        <>
+          <button onClick={(e)=>{e.stopPropagation();prev();}} style={{
+            position:"fixed",left:8,top:"50%",transform:"translateY(-50%)",zIndex:1600,
+            background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:"50%",
+            width:44,height:44,color:"#e8e8f0",fontSize:20,cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            backdropFilter:"blur(8px)"
+          }}>‹</button>
+          <button onClick={(e)=>{e.stopPropagation();next();}} style={{
+            position:"fixed",right:8,top:"50%",transform:"translateY(-50%)",zIndex:1600,
+            background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:"50%",
+            width:44,height:44,color:"#e8e8f0",fontSize:20,cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            backdropFilter:"blur(8px)"
+          }}>›</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Field({label, children}) {
   return (
     <div>
@@ -805,27 +884,27 @@ function gradeStyle(g) {
 
 const styles = {
   root:{display:"flex",flexDirection:"column",height:"100dvh",minHeight:"100vh",background:"#080810",color:"#e8e8f0",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
-  header:{display:"flex",alignItems:"center",gap:24,padding:"0 24px",height:52,background:"#0b0b13",borderBottom:"1px solid #151520",flexShrink:0},
+  header:{display:"flex",alignItems:"center",gap:16,padding:"0 16px",height:52,background:"#0b0b13",borderBottom:"1px solid #151520",flexShrink:0},
   logo:{display:"flex",alignItems:"center",gap:8},
-  nav:{display:"flex",gap:4},
-  navBtn:{background:"none",border:"none",color:"#4a4a65",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,padding:"6px 14px",borderRadius:6,cursor:"pointer",letterSpacing:0.3},
+  nav:{display:"flex",gap:2,flexShrink:1,minWidth:0},
+  navBtn:{background:"none",border:"none",color:"#4a4a65",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,padding:"6px 10px",borderRadius:6,cursor:"pointer",letterSpacing:0.3,whiteSpace:"nowrap"},
   navBtnActive:{color:"#e8e8f0",background:"#14141e"},
-  headerRight:{marginLeft:"auto",display:"flex",alignItems:"center",gap:16},
-  body:{flex:1,overflowY:"auto",overscrollBehavior:"contain",padding:24,paddingBottom:48},
+  headerRight:{marginLeft:"auto",display:"flex",alignItems:"center",gap:10,flexShrink:0},
+  body:{flex:1,overflowY:"auto",overscrollBehavior:"contain",padding:"20px 16px 48px",WebkitOverflowScrolling:"touch"},
   page:{maxWidth:1300,margin:"0 auto"},
-  kpiRow:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16},
-  kpiCard:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:"16px 20px"},
+  kpiRow:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:14},
+  kpiCard:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:"14px 16px"},
   kpiLabel:{fontSize:10,color:"#3a3a55",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:6},
-  kpiValue:{fontSize:26,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,lineHeight:1,marginBottom:4},
+  kpiValue:{fontSize:22,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,lineHeight:1,marginBottom:4},
   kpiSub:{fontSize:10,color:"#3a3a55",fontFamily:"'JetBrains Mono',monospace"},
-  chartsRow:{display:"flex",gap:12,marginBottom:16},
-  card:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:16},
+  chartsRow:{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap"},
+  card:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:14,minWidth:0},
   cardHeader:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12},
   cardTitle:{fontSize:12,fontWeight:700,color:"#8888aa",letterSpacing:0.5,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace"},
   empty:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 0",color:"#888"},
   filterRow:{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"},
-  filterInput:{background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:6,padding:"7px 12px",color:"#ccc",fontSize:12,fontFamily:"'JetBrains Mono',monospace",width:130},
-  filterSelect:{background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:6,padding:"7px 12px",color:"#ccc",fontSize:12,fontFamily:"'JetBrains Mono',monospace"},
+  filterInput:{background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:6,padding:"8px 12px",color:"#ccc",fontSize:13,fontFamily:"'JetBrains Mono',monospace",width:130,maxWidth:"100%"},
+  filterSelect:{background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:6,padding:"8px 12px",color:"#ccc",fontSize:13,fontFamily:"'JetBrains Mono',monospace"},
   tableWrap:{overflowX:"auto",borderRadius:10,border:"1px solid #1a1a28"},
   table:{width:"100%",borderCollapse:"collapse",background:"#0f0f1a"},
   th:{textAlign:"left",padding:"10px 14px",fontSize:9,color:"#3a3a55",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1a1a28",background:"#0b0b13",whiteSpace:"nowrap"},
@@ -834,8 +913,8 @@ const styles = {
   tdMono:{fontFamily:"'JetBrains Mono',monospace"},
   dirBadge:{display:"inline-block",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"2px 7px",borderRadius:4,letterSpacing:0.5},
   gradeBadge:{display:"inline-block",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"2px 7px",borderRadius:4,border:"1px solid"},
-  formGrid:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14},
-  input:{width:"100%",background:"#0b0b13",border:"1px solid #1e1e2e",borderRadius:6,padding:"9px 12px",color:"#e8e8f0",fontSize:12,fontFamily:"'JetBrains Mono',monospace"},
+  formGrid:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:12},
+  input:{width:"100%",background:"#0b0b13",border:"1px solid #1e1e2e",borderRadius:6,padding:"10px 12px",color:"#e8e8f0",fontSize:16,fontFamily:"'JetBrains Mono',monospace"},
   toggleBtn:{background:"transparent",border:"1px solid #252535",borderRadius:6,padding:"9px 10px",color:"#555",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",transition:"all 0.15s"},
   primaryBtn:{background:GOLD,border:"none",borderRadius:7,padding:"10px 24px",color:"#0a0a0a",fontSize:13,fontWeight:700,fontFamily:"'Manrope',sans-serif",cursor:"pointer",letterSpacing:0.3},
   ghostBtn:{background:"transparent",border:"1px solid #252535",borderRadius:7,padding:"10px 20px",color:"#777",fontSize:13,fontFamily:"'Manrope',sans-serif",cursor:"pointer",fontWeight:600},
