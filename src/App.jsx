@@ -355,11 +355,12 @@ function TradingJournal() {
   if (!loaded) return <div style={S.root}><div style={{color:"#555",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
 
   return (
-    <div style={S.root}>
+    <div style={isMobile ? {...S.root, height:"auto", minHeight:"100dvh", overflow:"visible"} : S.root}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { background:#080810; height:100%; overscroll-behavior:none; -webkit-overflow-scrolling:touch; }
+        html { scroll-behavior: smooth; }
+        html, body { background:#080810; overscroll-behavior:none; -webkit-overflow-scrolling:touch; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0b0b13; }
         ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
         input, textarea, select { outline: none; }
@@ -432,7 +433,7 @@ function TradingJournal() {
         </div>
       )}
 
-      <div style={S.body}>
+      <div style={isMobile ? {...S.body, flex:"none", overflowY:"visible", overscrollBehavior:"auto"} : S.body}>
         {view==="dashboard" && (
           <div style={S.page}>
             {!metrics ? (
