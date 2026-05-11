@@ -369,38 +369,40 @@ function TradingJournal() {
 
       {isMobile ? (
         <>
-          <div style={{...S.header, justifyContent:"center", position:"relative"}}>
-            <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
-            <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
-              {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
-              <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
-                background:unlocked?"rgba(201,168,64,0.08)":"transparent",
-                border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
-                padding:"5px 8px",color:unlocked?GOLD:"#666",fontSize:12,cursor:"pointer",
-                fontFamily:"'JetBrains Mono',monospace"
-              }}>{unlocked?"🔓":"🔒"}</button>
+          <div style={{position:"sticky",top:0,zIndex:50,background:"#0b0b13",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}>
+            <div style={{...S.header, justifyContent:"center", position:"relative"}}>
+              <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
+              <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
+                {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
+                <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
+                  background:unlocked?"rgba(201,168,64,0.08)":"transparent",
+                  border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
+                  padding:"5px 8px",color:unlocked?GOLD:"#666",fontSize:12,cursor:"pointer",
+                  fontFamily:"'JetBrains Mono',monospace"
+                }}>{unlocked?"🔓":"🔒"}</button>
+              </div>
             </div>
-          </div>
-          <div style={{
-            display:"flex",background:"#0b0b13",borderBottom:"1px solid #151520",
-            justifyContent:"space-around",flexShrink:0
-          }}>
-            {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"]].map(([v,l])=>{
-              const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
-              return (
-                <button key={v} onClick={()=>{
-                  if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
-                  else setView(v);
-                }} style={{
-                  flex:1,background:"transparent",border:"none",
-                  padding:"10px 4px",
-                  color:active?"#e8e8f0":"#5a5a75",
-                  fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:active?700:500,
-                  cursor:"pointer",letterSpacing:0.3,
-                  borderBottom:`2px solid ${active?GOLD:"transparent"}`
-                }}>{l}</button>
-              );
-            })}
+            <div style={{
+              display:"flex",background:"#0b0b13",borderBottom:"1px solid #151520",
+              justifyContent:"space-around",flexShrink:0
+            }}>
+              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"]].map(([v,l])=>{
+                const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
+                return (
+                  <button key={v} onClick={()=>{
+                    if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
+                    else setView(v);
+                  }} style={{
+                    flex:1,background:"transparent",border:"none",
+                    padding:"10px 4px",
+                    color:active?"#e8e8f0":"#5a5a75",
+                    fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:active?700:500,
+                    cursor:"pointer",letterSpacing:0.3,
+                    borderBottom:`2px solid ${active?GOLD:"transparent"}`
+                  }}>{l}</button>
+                );
+              })}
+            </div>
           </div>
         </>
       ) : (
