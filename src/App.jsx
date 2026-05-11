@@ -384,7 +384,7 @@ function TradingJournal() {
             display:"flex",background:"#0b0b13",borderBottom:"1px solid #151520",
             justifyContent:"space-around",flexShrink:0
           }}>
-            {[["dashboard","Dashboard"],["journal","Journal"],["add","New Trade"]].map(([v,l])=>{
+            {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"]].map(([v,l])=>{
               const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
               return (
                 <button key={v} onClick={()=>{
@@ -408,7 +408,7 @@ function TradingJournal() {
             <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
-            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ New Trade"]].map(([v,l])=>(
+            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"]].map(([v,l])=>(
               <button key={v} onClick={()=>{
                 if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
                 else setView(v);
