@@ -235,6 +235,17 @@ function TradingJournal() {
     reloadTrades();
   };
 
+  const [ledger, setLedger] = useState([]);
+  const [ledgerModal, setLedgerModal] = useState(null);
+  const reloadLedger = async () => {
+    try {
+      const r = await fetch("/api/ledger");
+      if (!r.ok) throw new Error("api " + r.status);
+      setLedger(await r.json());
+    } catch (e) { console.warn("ledger load failed:", e); }
+  };
+  useEffect(() => { reloadLedger(); }, []);
+
   const [strategyRules, setStrategyRules] = useState([]);
   const [checkedRules, setCheckedRules] = useState({});
   useEffect(() => {
@@ -526,6 +537,11 @@ function TradingJournal() {
                     </div>
                   ))}
                 </div>
+
+                <EquityCard ledger={ledger} trades={trades} onAdd={()=>requireUnlock(()=>setLedgerModal({date:new Date().toISOString().slice(0,10),type:"Deposit",amount:"",note:""}))} onDelete={(id)=>requireUnlock(async()=>{
+                  if(!confirm("Delete this entry?")) return;
+                  try { await fetch(`/api/ledger?id=${encodeURIComponent(id)}`,{method:"DELETE"}); await reloadLedger(); showToast("Entry deleted","ok"); } catch(e){ showToast("Delete failed","err"); }
+                })}/>
 
                 <div style={{...S.card, marginBottom:14}}>
                   <div style={S.cardHeader}>
@@ -910,6 +926,29 @@ function TradingJournal() {
         )}
       </div>
 
+      {ledgerModal && (
+        <LedgerModal
+          entry={ledgerModal}
+          onChange={setLedgerModal}
+          onClose={()=>setLedgerModal(null)}
+          onSave={async (entry) => {
+            try {
+              const r = await fetch("/api/ledger", {
+                method:"POST", headers:{"Content-Type":"application/json"},
+                body: JSON.stringify(entry),
+              });
+              if (!r.ok) throw new Error("api " + r.status);
+              await reloadLedger();
+              setLedgerModal(null);
+              showToast("Entry saved ✓","ok");
+            } catch (e) {
+              console.error(e);
+              showToast("Save failed: " + (e.message||"err"),"err");
+            }
+          }}
+        />
+      )}
+
       {lightbox && (
         <Lightbox
           urls={lightbox.urls}
@@ -1039,6 +1078,186 @@ function CalendarHeatmap({ trades }) {
             <div style={{width:cellSize,height:cellSize,background:color(data.max),borderRadius:3}}/>
             <span>win</span>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EquityCard({ ledger, trades, onAdd, onDelete }) {
+  const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+  const tradesPnl = sum(trades, t => parseFloat(t.pnl) || 0);
+  const starting = sum(ledger.filter(e => e.type === "Starting"), e => e.amount || 0);
+  const deposits = sum(ledger.filter(e => e.type === "Deposit"), e => e.amount || 0);
+  const withdrawals = sum(ledger.filter(e => e.type === "Withdrawal"), e => e.amount || 0);
+  const adjustments = sum(ledger.filter(e => e.type === "Adjustment"), e => e.amount || 0);
+  const equity = starting + deposits - withdrawals + adjustments + tradesPnl;
+
+  const moneyOf = (n) => (n >= 0 ? "+$" : "-$") + Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  return (
+    <div style={{...styles.card, marginBottom:14, padding:18, borderColor: GOLD+"33"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div>
+          <div style={{...styles.cardTitle, color:GOLD}}>Account Equity</div>
+          <div style={{fontSize:10,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace",marginTop:3,letterSpacing:1}}>{ledger.length} ledger entries · {trades.length} trades</div>
+        </div>
+        <button onClick={onAdd} style={{
+          background:"transparent",border:`1px solid ${GOLD}66`,borderRadius:6,
+          padding:"6px 14px",color:GOLD,fontSize:10,cursor:"pointer",
+          fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase",fontWeight:600
+        }}>+ Add Entry</button>
+      </div>
+
+      <div style={{
+        display:"flex",alignItems:"baseline",gap:14,marginBottom:14,
+        padding:"14px 18px",borderRadius:8,
+        background:"linear-gradient(135deg, rgba(198,164,76,0.10), rgba(198,164,76,0.02))",
+        border:`1px solid ${GOLD}33`
+      }}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:3,color:"#7e8aa4",textTransform:"uppercase"}}>Current Equity</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:28,color:GOLD,marginTop:4,lineHeight:1}}>
+            ${equity.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(120px, 1fr))",gap:8,marginBottom:12}}>
+        <EquityStat label="Starting" value={moneyOf(starting)}/>
+        <EquityStat label="Deposits" value={moneyOf(deposits)} color={G}/>
+        <EquityStat label="Withdrawals" value={moneyOf(-withdrawals)} color={R}/>
+        <EquityStat label="Trade P&L" value={moneyOf(tradesPnl)} color={tradesPnl>=0?G:R}/>
+        {adjustments !== 0 && <EquityStat label="Adjustments" value={moneyOf(adjustments)}/>}
+      </div>
+
+      {ledger.length > 0 && (
+        <details style={{marginTop:8}}>
+          <summary style={{cursor:"pointer",fontSize:11,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,padding:"4px 0"}}>
+            ▸ history ({ledger.length})
+          </summary>
+          <div style={{marginTop:10,maxHeight:200,overflowY:"auto",overscrollBehavior:"contain"}}>
+            {[...ledger].reverse().map(e => (
+              <div key={e.id} style={{
+                display:"flex",alignItems:"center",gap:10,padding:"8px 6px",
+                borderBottom:"1px solid #1a221c",fontSize:12
+              }}>
+                <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#7e8aa4",fontSize:11,width:80,flexShrink:0}}>{e.date}</span>
+                <span style={{
+                  fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:1.5,textTransform:"uppercase",fontWeight:600,
+                  color: e.type==="Deposit"?G:e.type==="Withdrawal"?R:GOLD,
+                  width:90,flexShrink:0
+                }}>{e.type}</span>
+                <span style={{flex:1,fontSize:11,color:"#a8a886",fontFamily:"'Manrope',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.note}</span>
+                <span style={{fontFamily:"'JetBrains Mono',monospace",color: e.type==="Withdrawal"?R:G,fontWeight:700,fontSize:12}}>
+                  {e.type==="Withdrawal"?"-":"+"}${(e.amount||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                </span>
+                <button onClick={()=>onDelete(e.id)} style={{
+                  background:"transparent",border:"1px solid #2a3a55",borderRadius:4,
+                  width:22,height:22,color:R,fontSize:12,cursor:"pointer",lineHeight:1,
+                  display:"flex",alignItems:"center",justifyContent:"center"
+                }}>×</button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function EquityStat({ label, value, color }) {
+  return (
+    <div style={{padding:"10px 12px",border:"1px solid #1c2c45",borderRadius:6,background:"#0e1a2e"}}>
+      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:3}}>{label}</div>
+      <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:14,color:color||"#eee0bf"}}>{value}</div>
+    </div>
+  );
+}
+
+function LedgerModal({ entry, onChange, onClose, onSave }) {
+  const [busy, setBusy] = useState(false);
+  const TYPES = ["Starting","Deposit","Withdrawal","Adjustment"];
+  const submit = async () => {
+    if (!entry.amount || isNaN(Number(entry.amount))) return alert("Enter a valid amount");
+    setBusy(true);
+    await onSave({ ...entry, amount: Number(entry.amount) });
+    setBusy(false);
+  };
+  return (
+    <div onClick={onClose} style={{
+      position:"fixed",inset:0,zIndex:1000,
+      background:"rgba(7,16,28,0.85)",backdropFilter:"blur(6px)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,
+      fontFamily:"'Manrope',sans-serif"
+    }}>
+      <div onClick={(e)=>e.stopPropagation()} style={{
+        background:"#121e34",border:"1px solid #1c2c45",borderRadius:14,
+        padding:24,width:"100%",maxWidth:380,
+        boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
+      }}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:22,color:"#eee0bf",textAlign:"center"}}>New Ledger Entry</div>
+        <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:3,color:GOLD,textAlign:"center",textTransform:"uppercase",marginTop:4,marginBottom:18}}>Deposit · Withdrawal · Adjustment</div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Type</div>
+            <div style={{display:"flex",gap:6}}>
+              {TYPES.map(t => (
+                <button key={t} onClick={()=>onChange({...entry,type:t})} style={{
+                  flex:1,padding:"8px 4px",
+                  background: entry.type===t ? (t==="Deposit"?"rgba(165,178,133,0.15)":t==="Withdrawal"?"rgba(138,67,57,0.15)":"rgba(198,164,76,0.15)") : "transparent",
+                  border:`1px solid ${entry.type===t ? (t==="Deposit"?G:t==="Withdrawal"?R:GOLD) : "#26385a"}`,
+                  color: entry.type===t ? (t==="Deposit"?G:t==="Withdrawal"?R:GOLD) : "#7e8aa4",
+                  borderRadius:6,fontSize:10,cursor:"pointer",
+                  fontFamily:"'Cinzel',serif",letterSpacing:1,textTransform:"uppercase",fontWeight:600
+                }}>{t}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Date</div>
+            <input type="date" value={entry.date} onChange={(e)=>onChange({...entry,date:e.target.value})} style={{
+              width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,
+              padding:"10px 12px",color:"#eee0bf",fontSize:14,fontFamily:"'JetBrains Mono',monospace"
+            }}/>
+          </div>
+
+          <div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Amount ($)</div>
+            <input type="number" autoFocus value={entry.amount} placeholder="0.00"
+              onChange={(e)=>onChange({...entry,amount:e.target.value})}
+              onKeyDown={(e)=>e.key==="Enter"&&submit()}
+              style={{
+                width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,
+                padding:"10px 12px",color:GOLD,fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"
+              }}/>
+          </div>
+
+          <div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Note (optional)</div>
+            <input value={entry.note} placeholder="e.g. Initial deposit, broker withdrawal..."
+              onChange={(e)=>onChange({...entry,note:e.target.value})}
+              style={{
+                width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,
+                padding:"10px 12px",color:"#eee0bf",fontSize:13,fontFamily:"'Manrope',sans-serif"
+              }}/>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:8,marginTop:20}}>
+          <button onClick={onClose} disabled={busy} style={{
+            flex:1,background:"transparent",border:"1px solid #26385a",borderRadius:8,
+            padding:"11px",color:"#7e8aa4",fontWeight:600,fontSize:11,cursor:"pointer",
+            fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase"
+          }}>Cancel</button>
+          <button onClick={submit} disabled={busy} style={{
+            flex:2,background:GOLD,border:"none",borderRadius:8,
+            padding:"11px",color:"#0a0a0a",fontWeight:700,fontSize:11,cursor:busy?"wait":"pointer",
+            fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase",
+            opacity:busy?0.6:1
+          }}>{busy?"Saving…":"Save Entry"}</button>
         </div>
       </div>
     </div>
