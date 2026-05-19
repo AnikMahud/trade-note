@@ -973,7 +973,7 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
         }}>+ ADD</button>
       </div>
       {loading && <div style={{fontSize:12,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>loading…</div>}
-      <ol style={{listStyle:"none",padding:0,margin:0,display:"flex",flexDirection:"column",gap:10}}>
+      <ol style={{listStyle:"none",padding:"0 4px 0 0",margin:0,display:"flex",flexDirection:"column",gap:10,maxHeight:380,overflowY:"auto",overscrollBehavior:"contain"}}>
         {items.map((it, i) => {
           const editing = editId === it.id;
           return (
