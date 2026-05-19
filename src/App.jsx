@@ -386,7 +386,7 @@ function TradingJournal() {
               display:"flex",background:"#0b0b13",borderBottom:"1px solid #151520",
               justifyContent:"space-around",flexShrink:0
             }}>
-              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"]].map(([v,l])=>{
+              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"]].map(([v,l])=>{
                 const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
                 return (
                   <button key={v} onClick={()=>{
@@ -394,10 +394,10 @@ function TradingJournal() {
                     else setView(v);
                   }} style={{
                     flex:1,background:"transparent",border:"none",
-                    padding:"10px 4px",
+                    padding:"10px 2px",
                     color:active?"#e8e8f0":"#5a5a75",
-                    fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:active?700:500,
-                    cursor:"pointer",letterSpacing:0.3,
+                    fontSize:11,fontFamily:"'Manrope',sans-serif",fontWeight:active?700:500,
+                    cursor:"pointer",letterSpacing:0.2,whiteSpace:"nowrap",
                     borderBottom:`2px solid ${active?GOLD:"transparent"}`
                   }}>{l}</button>
                 );
@@ -411,7 +411,7 @@ function TradingJournal() {
             <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
-            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"]].map(([v,l])=>(
+            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"]].map(([v,l])=>(
               <button key={v} onClick={()=>{
                 if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
                 else setView(v);
@@ -785,6 +785,14 @@ function TradingJournal() {
             </div>
           </div>
         )}
+
+        {view==="strategy" && (
+          <div style={S.page}><StrategyPage /></div>
+        )}
+
+        {view==="target" && (
+          <div style={S.page}><TargetPage requireUnlock={requireUnlock} unlocked={unlocked} showToast={showToast} /></div>
+        )}
       </div>
 
       {lightbox && (
@@ -827,6 +835,264 @@ function TradingJournal() {
     </div>
   );
 }
+
+const RULES = [
+  "1h chart trend bull/bear. If market is choppy, skip the trade.",
+  "Mark Fibonacci from previous BOS/CHOCH low to current high.",
+  "On 5m chart, wait for market to come into OTE zone.",
+  "Wait for market to touch OTE zone and move into demand zone.",
+  "When market makes CHOCH on demand zone, this becomes the entry point.",
+  "SL = recent support. TP = 1:3 risk reward.",
+];
+
+const LESSONS = [
+  "Wait for candle to make CHOCH on demand zone and let the second candle close above it before entry.",
+  "Do not enter immediately on OTE zone CHOCH.",
+  "Wait for price to move up and cross demand zone CHOCH.",
+  "I entered too early because market was in OTE zone.",
+  "Even if SL looks short, patience is important.",
+  "Always check market volume before entering.",
+];
+
+function StrategyPage() {
+  return (
+    <div>
+      <div style={{textAlign:"center",marginBottom:24}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#e8e8f0",letterSpacing:1,lineHeight:1.1}}>Trading Rules &amp; Lessons</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:8}}>
+          <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
+          <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:4,textTransform:"uppercase"}}>The Playbook</span>
+          <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
+        </div>
+      </div>
+
+      <StrategyDiagram />
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))",gap:14,marginTop:20}}>
+        <RuleCard title="Trading Rules" subtitle="Setup checklist" accent={GOLD} items={RULES}/>
+        <RuleCard title="Lessons Learned" subtitle="From mistakes" accent="#A56250" items={LESSONS}/>
+      </div>
+
+      <div style={{
+        marginTop:20,padding:24,
+        background:"linear-gradient(135deg, rgba(201,168,64,0.08), rgba(201,168,64,0.02))",
+        border:`1px solid ${GOLD}55`,borderRadius:12,textAlign:"center"
+      }}>
+        <div style={{fontSize:9,color:GOLD,letterSpacing:4,fontFamily:"'JetBrains Mono',monospace",marginBottom:10}}>KEY REMINDER</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:20,color:"#e8e8f0",lineHeight:1.5,maxWidth:600,margin:"0 auto"}}>
+          Patience is part of the strategy. Wait for confirmation, follow the structure, avoid emotional entries.
+        </div>
+        <div style={{marginTop:12,fontSize:11,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:3,textTransform:"uppercase"}}>
+          Discipline · Creates · Consistency
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RuleCard({ title, subtitle, accent, items }) {
+  return (
+    <div style={{...styles.card, padding:20, borderColor: accent + "33"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,paddingBottom:10,borderBottom:`1px solid ${accent}22`}}>
+        <div>
+          <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:14,color:"#e8e8f0",letterSpacing:0.3}}>{title}</div>
+          <div style={{fontSize:9,color:accent,fontFamily:"'JetBrains Mono',monospace",letterSpacing:2,textTransform:"uppercase",marginTop:3}}>{subtitle}</div>
+        </div>
+      </div>
+      <ol style={{listStyle:"none",padding:0,margin:0,display:"flex",flexDirection:"column",gap:10}}>
+        {items.map((it, i) => (
+          <li key={i} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            <span style={{
+              flexShrink:0,fontFamily:"'JetBrains Mono',monospace",fontSize:10,
+              color:accent,fontWeight:700,minWidth:18,paddingTop:2
+            }}>{String(i+1).padStart(2,"0")}</span>
+            <span style={{fontSize:13,color:"#c8c8dc",lineHeight:1.55,fontFamily:"'Manrope',sans-serif"}}>{it}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function StrategyDiagram() {
+  return (
+    <div style={{...styles.card, padding:16, marginTop:0, marginBottom:0}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <span style={styles.cardTitle}>Setup Diagram</span>
+        <span style={{fontSize:10,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>BOS · CHOCH · OTE · Demand</span>
+      </div>
+      <svg viewBox="0 0 800 220" style={{width:"100%",height:"auto",display:"block"}} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="oteGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={GOLD} stopOpacity="0.25"/>
+            <stop offset="100%" stopColor={GOLD} stopOpacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="demandGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={G} stopOpacity="0.25"/>
+            <stop offset="100%" stopColor={G} stopOpacity="0.05"/>
+          </linearGradient>
+        </defs>
+        {/* zones */}
+        <rect x="240" y="60" width="200" height="40" fill="url(#oteGrad)" stroke={GOLD} strokeWidth="0.5" strokeDasharray="3 3"/>
+        <rect x="380" y="140" width="180" height="38" fill="url(#demandGrad)" stroke={G} strokeWidth="0.5" strokeDasharray="3 3"/>
+        {/* price path */}
+        <path d="M 20 180 L 80 130 L 130 150 L 180 90 L 230 110 L 290 70 L 340 95 L 400 155 L 460 165 L 520 145 L 580 110 L 640 80 L 720 40" fill="none" stroke="#c8c8dc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* markers */}
+        <circle cx="180" cy="90" r="4" fill={GOLD}/>
+        <text x="180" y="78" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">BOS</text>
+        <circle cx="400" cy="155" r="4" fill={R}/>
+        <text x="400" y="200" fill={R} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">CHOCH (demand)</text>
+        <circle cx="460" cy="165" r="4" fill={G}/>
+        <text x="460" y="200" fill={G} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">ENTRY</text>
+        <line x1="540" y1="130" x2="720" y2="40" stroke={G} strokeWidth="0.5" strokeDasharray="2 4"/>
+        <text x="720" y="32" fill={G} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="end">TP · 1:3</text>
+        <text x="20" y="172" fill={R} fontSize="9" fontFamily="JetBrains Mono, monospace">SL</text>
+        <text x="340" y="60" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace">OTE 0.618 / 0.79</text>
+        <text x="470" y="138" fill={G} fontSize="9" fontFamily="JetBrains Mono, monospace">Demand Zone</text>
+      </svg>
+    </div>
+  );
+}
+
+const START_CAPITAL = 1000;
+const TARGET_COUNT = 50;
+const TARGET_RATE = 0.10;
+
+function buildTargetRows() {
+  const rows = [];
+  let balance = START_CAPITAL;
+  for (let i = 1; i <= TARGET_COUNT; i++) {
+    const gain = balance * TARGET_RATE;
+    balance += gain;
+    rows.push({ step: i, gain: round2(gain), balance: round2(balance) });
+  }
+  return rows;
+}
+function round2(n) { return Math.round(n * 100) / 100; }
+function money(n) {
+  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function TargetPage({ requireUnlock, showToast }) {
+  const rows = useMemo(() => buildTargetRows(), []);
+  const [doneMap, setDoneMap] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/targets");
+        if (!r.ok) throw new Error("api " + r.status);
+        const list = await r.json();
+        const m = {};
+        list.forEach(t => { if (t.done) m[t.step] = { done:true, completedAt:t.completedAt }; });
+        setDoneMap(m);
+      } catch (e) { console.warn("targets load failed:", e); }
+      setLoading(false);
+    })();
+  }, []);
+
+  const toggle = (step) => requireUnlock(async () => {
+    const next = !doneMap[step]?.done;
+    setBusy(step);
+    const optimistic = { ...doneMap };
+    if (next) optimistic[step] = { done:true, completedAt: new Date().toISOString() };
+    else delete optimistic[step];
+    setDoneMap(optimistic);
+    try {
+      const r = await fetch("/api/targets", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ step, done: next }),
+      });
+      if (!r.ok) throw new Error("api " + r.status);
+      showToast && showToast(next ? `Target ${step} marked done` : `Target ${step} cleared`, "ok");
+    } catch (e) {
+      console.error("toggle failed:", e);
+      showToast && showToast("Save failed: " + (e?.message||"unknown"), "err");
+      setDoneMap(doneMap);
+    } finally { setBusy(null); }
+  });
+
+  const completed = Object.values(doneMap).filter(t => t.done).length;
+  const lastDone = Math.max(0, ...rows.filter(r => doneMap[r.step]?.done).map(r => r.step));
+  const currentBalance = lastDone ? rows[lastDone-1].balance : START_CAPITAL;
+
+  return (
+    <div>
+      <div style={{textAlign:"center",marginBottom:24}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#e8e8f0",letterSpacing:1,lineHeight:1.1}}>Compounding Targets</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:8}}>
+          <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
+          <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:4,textTransform:"uppercase"}}>10% × 50 Steps</span>
+          <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",gap:10,marginBottom:16}}>
+        <StatCard label="Starting" value={money(START_CAPITAL)} sub="Capital base"/>
+        <StatCard label="Progress" value={`${completed} / ${TARGET_COUNT}`} sub={`${Math.round(completed/TARGET_COUNT*100)}% complete`} color={GOLD}/>
+        <StatCard label="Current Balance" value={money(currentBalance)} sub={lastDone?`At step ${lastDone}`:"Not started"} color={G}/>
+        <StatCard label="Final Target" value={money(rows[rows.length-1].balance)} sub="At step 50"/>
+      </div>
+
+      <div style={{...styles.card, padding:0, overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #1a1a28",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={styles.cardTitle}>Steps</span>
+          <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>{loading?"loading…":`${completed}/${TARGET_COUNT}`}</span>
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
+            <thead>
+              <tr style={{background:"#0b0b13"}}>
+                <th style={tgTh}>#</th>
+                <th style={tgTh}>Gain (10%)</th>
+                <th style={tgTh}>Balance</th>
+                <th style={{...tgTh,textAlign:"center"}}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const done = !!doneMap[r.step]?.done;
+                const isBusy = busy === r.step;
+                return (
+                  <tr key={r.step} style={{borderBottom:"1px solid #111118",background: done?"rgba(212,184,110,0.04)":"transparent"}}>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:done?GOLD:"#777",fontWeight:700,width:42}}>{String(r.step).padStart(2,"0")}</td>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:G}}>+{money(r.gain)}</td>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:"#e8e8f0",fontWeight:600}}>{money(r.balance)}</td>
+                    <td style={{...tgTd,textAlign:"center",width:90}}>
+                      <button disabled={isBusy} onClick={()=>toggle(r.step)} style={{
+                        background: done?"rgba(212,184,110,0.15)":"transparent",
+                        border:`1px solid ${done?GOLD:"#252535"}`,borderRadius:6,
+                        padding:"5px 12px",color: done?GOLD:"#666",fontSize:11,
+                        cursor:isBusy?"wait":"pointer",fontFamily:"'JetBrains Mono',monospace",
+                        fontWeight:700,letterSpacing:1,opacity:isBusy?0.5:1,
+                        minWidth:70
+                      }}>{isBusy?"…":(done?"✓ DONE":"MARK")}</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, color }) {
+  return (
+    <div style={{...styles.kpiCard}}>
+      <div style={styles.kpiLabel}>{label}</div>
+      <div style={{...styles.kpiValue, fontSize:20, color:color||"#e8e8f0"}}>{value}</div>
+      <div style={styles.kpiSub}>{sub}</div>
+    </div>
+  );
+}
+
+const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#3a3a55",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1a1a28",whiteSpace:"nowrap"};
+const tgTd = {padding:"11px 14px",fontSize:12};
 
 function Lightbox({ urls, index, onChange, onClose }) {
   const total = urls.length;
