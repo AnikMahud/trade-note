@@ -5,9 +5,9 @@ import {
 } from "recharts";
 import { loadTrades, saveTrade, saveAll, removeTrade, useCloud } from "./storage.js";
 
-const G = "#D4B86E";   // champagne — wins / positive
-const R = "#A56250";   // burnt sienna — losses / negative
-const GOLD = "#C9A840"; // brand accent
+const G = "#a5b285";   // sage olive — wins/positive
+const R = "#8a4339";   // oxblood — losses/negative
+const GOLD = "#c6a44c"; // brass — brand accent
 const APP_PIN = import.meta.env.VITE_APP_PIN || "1234";
 const PIN_KEY = "tn-pin-ok";
 
@@ -74,20 +74,20 @@ function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to
         .pin-shake { animation: pinShake 0.4s ease; }
       `}</style>
       <div className={shake?"pin-shake":""} onClick={e=>e.stopPropagation()} style={{
-        background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:14,
+        background:"#121e34",border:"1px solid #1c2c45",borderRadius:14,
         padding:32,minWidth:300,textAlign:"center",
         boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
       }}>
         <img src="/logo.png" alt="Mahmudur TradeVault" style={{width:160,height:"auto",objectFit:"contain",marginBottom:8}}/>
-        <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:14,color:"#e8e8f0",lineHeight:1.2,marginTop:4}}>{title}</div>
-        <div style={{fontSize:11,color:"#5a5a75",marginTop:6,letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{subtitle}</div>
+        <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:14,color:"#eee0bf",lineHeight:1.2,marginTop:4}}>{title}</div>
+        <div style={{fontSize:11,color:"#7e8aa4",marginTop:6,letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{subtitle}</div>
         <input
           type="password" inputMode="numeric" autoFocus value={pin}
           onChange={e=>{setPin(e.target.value);setErr(false);}}
           onKeyDown={e=>{if(e.key==="Enter")submit();if(e.key==="Escape")onCancel();}}
           placeholder="• • • •"
           style={{
-            width:"100%",marginTop:20,background:"#0b0b13",border:`1px solid ${err?R:"#252535"}`,
+            width:"100%",marginTop:20,background:"#0e1a2e",border:`1px solid ${err?R:"#26385a"}`,
             borderRadius:8,padding:"14px 16px",color:GOLD,
             fontSize:22,fontFamily:"'JetBrains Mono',monospace",
             textAlign:"center",letterSpacing:8,outline:"none"
@@ -95,8 +95,8 @@ function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to
         />
         <div style={{display:"flex",gap:8,marginTop:12}}>
           <button onClick={onCancel} style={{
-            flex:1,background:"transparent",border:"1px solid #252535",borderRadius:8,
-            padding:"11px",color:"#666",fontWeight:600,fontSize:12,cursor:"pointer",
+            flex:1,background:"transparent",border:"1px solid #26385a",borderRadius:8,
+            padding:"11px",color:"#7a8aa8",fontWeight:600,fontSize:12,cursor:"pointer",
             letterSpacing:1,textTransform:"uppercase",fontFamily:"'Manrope',sans-serif"
           }}>Cancel</button>
           <button onClick={submit} style={{
@@ -132,7 +132,7 @@ function Brand({size="header", showLock=false, onLock}) {
         <>
           <div style={{
             fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,
-            fontSize:34,color:"#e8e8f0",letterSpacing:1,lineHeight:1,marginTop:6
+            fontSize:34,color:"#eee0bf",letterSpacing:1,lineHeight:1,marginTop:6
           }}>Mahmudur</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginTop:2}}>
             <div style={{width:30,height:1,background:GOLD,opacity:0.5}}/>
@@ -142,18 +142,18 @@ function Brand({size="header", showLock=false, onLock}) {
             }}>Trade Note</span>
             <div style={{width:30,height:1,background:GOLD,opacity:0.5}}/>
           </div>
-          <div style={{fontSize:9,color:"#3a3a55",letterSpacing:3,fontFamily:"'JetBrains Mono',monospace",marginTop:8}}>EST · MMXXVI</div>
+          <div style={{fontSize:9,color:"#4a5a78",letterSpacing:3,fontFamily:"'JetBrains Mono',monospace",marginTop:8}}>EST · MMXXVI</div>
         </>
       ) : (
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",marginLeft:10,position:"absolute",left:64,top:10}}>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:15,color:"#e8e8f0",lineHeight:1}}>Mahmudur</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:15,color:"#eee0bf",lineHeight:1}}>Mahmudur</span>
           <span style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:8,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginTop:2}}>Trade Note</span>
         </div>
       )}
       {showLock && (
         <button onClick={onLock} title="Lock" style={{
-          position:"absolute",right:24,top:14,background:"transparent",border:"1px solid #252535",
-          borderRadius:6,padding:"5px 10px",color:"#666",fontSize:10,cursor:"pointer",
+          position:"absolute",right:24,top:14,background:"transparent",border:"1px solid #26385a",
+          borderRadius:6,padding:"5px 10px",color:"#7a8aa8",fontSize:10,cursor:"pointer",
           fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
         }}>LOCK</button>
       )}
@@ -352,38 +352,38 @@ function TradingJournal() {
 
   const S = styles;
 
-  if (!loaded) return <div style={S.root}><div style={{color:"#555",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
+  if (!loaded) return <div style={S.root}><div style={{color:"#5a6b88",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
 
   return (
     <div style={isMobile ? {...S.root, height:"auto", minHeight:"100dvh", overflow:"visible"} : S.root}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cinzel:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        html, body { background:#080810; overscroll-behavior:none; -webkit-overflow-scrolling:touch; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0b0b13; }
-        ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+        html, body { background: radial-gradient(ellipse at top, #14233e 0%, #0b1424 55%, #07101c 100%); background-attachment: fixed; overscroll-behavior:none; -webkit-overflow-scrolling:touch; color:#eee0bf; }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0e1a2e; }
+        ::-webkit-scrollbar-thumb { background: #2a3a55; border-radius: 2px; }
         input, textarea, select { outline: none; }
-        input::placeholder, textarea::placeholder { color: #3a3a52; }
+        input::placeholder, textarea::placeholder { color: #4a5a78; }
       `}</style>
 
       {isMobile ? (
         <>
-          <div style={{position:"sticky",top:0,zIndex:50,background:"#0b0b13",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}>
+          <div style={{position:"sticky",top:0,zIndex:50,background:"#0e1a2e",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}>
             <div style={{...S.header, justifyContent:"center", position:"relative"}}>
               <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
               <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
                 {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
                 <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
                   background:unlocked?"rgba(201,168,64,0.08)":"transparent",
-                  border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
-                  padding:"5px 8px",color:unlocked?GOLD:"#666",fontSize:12,cursor:"pointer",
+                  border:`1px solid ${unlocked?GOLD+"55":"#26385a"}`,borderRadius:6,
+                  padding:"5px 8px",color:unlocked?GOLD:"#7a8aa8",fontSize:12,cursor:"pointer",
                   fontFamily:"'JetBrains Mono',monospace"
                 }}>{unlocked?"🔓":"🔒"}</button>
               </div>
             </div>
             <div style={{
-              display:"flex",background:"#0b0b13",borderBottom:"1px solid #151520",
+              display:"flex",background:"#0e1a2e",borderBottom:"1px solid #14223a",
               justifyContent:"space-around",flexShrink:0
             }}>
               {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"]].map(([v,l])=>{
@@ -395,9 +395,9 @@ function TradingJournal() {
                   }} style={{
                     flex:1,background:"transparent",border:"none",
                     padding:"10px 2px",
-                    color:active?"#e8e8f0":"#5a5a75",
-                    fontSize:11,fontFamily:"'Manrope',sans-serif",fontWeight:active?700:500,
-                    cursor:"pointer",letterSpacing:0.2,whiteSpace:"nowrap",
+                    color:active?"#eee0bf":"#7e8aa4",
+                    fontSize:10,fontFamily:"'Cinzel',serif",fontWeight:active?600:500,
+                    cursor:"pointer",letterSpacing:1.5,whiteSpace:"nowrap",textTransform:"uppercase",
                     borderBottom:`2px solid ${active?GOLD:"transparent"}`
                   }}>{l}</button>
                 );
@@ -427,8 +427,8 @@ function TradingJournal() {
             </span>}
             <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
               background:unlocked?"rgba(201,168,64,0.08)":"transparent",
-              border:`1px solid ${unlocked?GOLD+"55":"#252535"}`,borderRadius:6,
-              padding:"5px 10px",color:unlocked?GOLD:"#666",fontSize:10,cursor:"pointer",
+              border:`1px solid ${unlocked?GOLD+"55":"#26385a"}`,borderRadius:6,
+              padding:"5px 10px",color:unlocked?GOLD:"#7a8aa8",fontSize:10,cursor:"pointer",
               fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
             }}>{unlocked?"🔓 UNLOCKED":"🔒 LOCKED"}</button>
           </div>
@@ -441,8 +441,8 @@ function TradingJournal() {
             {!metrics ? (
               <div style={S.empty}>
                 <div style={{fontSize:48,marginBottom:16}}>📊</div>
-                <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:20,color:"#e8e8f0",marginBottom:8}}>No trades yet</div>
-                <div style={{color:"#555",fontSize:13,marginBottom:24}}>Start logging your trades to see advanced analytics</div>
+                <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:20,color:"#eee0bf",marginBottom:8}}>No trades yet</div>
+                <div style={{color:"#5a6b88",fontSize:13,marginBottom:24}}>Start logging your trades to see advanced analytics</div>
                 <button style={S.primaryBtn} onClick={()=>requireUnlock(()=>{setForm(blank());setView("add");})}>Log First Trade</button>
               </div>
             ) : (
@@ -466,7 +466,7 @@ function TradingJournal() {
                   <div style={{...S.card, flex:"2 1 320px", minWidth:280}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Equity Curve</span>
-                      <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>cumulative P&L</span>
+                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>cumulative P&L</span>
                     </div>
                     <ResponsiveContainer width="100%" height={180}>
                       <LineChart data={metrics.equity} margin={{top:5,right:10,left:0,bottom:0}}>
@@ -476,11 +476,11 @@ function TradingJournal() {
                             <stop offset="95%" stopColor={G} stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1a1a28" vertical={false}/>
-                        <XAxis dataKey="date" tick={{fill:"#3a3a55",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
-                        <YAxis tick={{fill:"#3a3a55",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
-                        <ReferenceLine y={0} stroke="#2a2a3a" strokeDasharray="3 3"/>
-                        <Tooltip contentStyle={{background:"#10101c",border:"1px solid #252535",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} labelStyle={{color:"#888"}} formatter={(v)=>[`$${v.toFixed(2)}`,"Equity"]}/>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1c2c45" vertical={false}/>
+                        <XAxis dataKey="date" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
+                        <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
+                        <ReferenceLine y={0} stroke="#2a3a55" strokeDasharray="3 3"/>
+                        <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} labelStyle={{color:"#9caac4"}} formatter={(v)=>[`$${v.toFixed(2)}`,"Equity"]}/>
                         <Line type="monotone" dataKey="eq" stroke={G} strokeWidth={2} dot={false} activeDot={{r:4,fill:G,strokeWidth:0}}/>
                       </LineChart>
                     </ResponsiveContainer>
@@ -489,15 +489,15 @@ function TradingJournal() {
                   <div style={{...S.card, flex:"1.5 1 280px", minWidth:260}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Daily P&L</span>
-                      <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>last 30 days</span>
+                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>last 30 days</span>
                     </div>
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={metrics.daily} margin={{top:5,right:5,left:0,bottom:0}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1a1a28" vertical={false}/>
-                        <XAxis dataKey="date" tick={{fill:"#3a3a55",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
-                        <YAxis tick={{fill:"#3a3a55",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
-                        <ReferenceLine y={0} stroke="#2a2a3a"/>
-                        <Tooltip contentStyle={{background:"#10101c",border:"1px solid #252535",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} formatter={(v)=>[`$${v.toFixed(2)}`,"P&L"]}/>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1c2c45" vertical={false}/>
+                        <XAxis dataKey="date" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
+                        <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
+                        <ReferenceLine y={0} stroke="#2a3a55"/>
+                        <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} formatter={(v)=>[`$${v.toFixed(2)}`,"P&L"]}/>
                         <Bar dataKey="pnl" radius={[3,3,0,0]}>
                           {metrics.daily.map((d,i)=><Cell key={i} fill={d.pnl>=0?G:R} fillOpacity={0.85}/>)}
                         </Bar>
@@ -520,8 +520,8 @@ function TradingJournal() {
                         {l:"Max Consec. Losses", v:metrics.mxL, c:R},
                         {l:"Current Streak", v:`${metrics.streak} ${metrics.streakType}`, c:metrics.streakType==="win"?G:R},
                       ].map(m=>(
-                        <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #161620"}}>
-                          <span style={{fontSize:11,color:"#5a5a75",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
+                        <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #14223a"}}>
+                          <span style={{fontSize:11,color:"#7e8aa4",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
                           <span style={{fontSize:12,color:m.c,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{m.v}</span>
                         </div>
                       ))}
@@ -532,10 +532,10 @@ function TradingJournal() {
                     <div style={S.cardHeader}><span style={S.cardTitle}>Top Symbols</span></div>
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={metrics.symbols} layout="vertical" margin={{top:0,right:10,left:10,bottom:0}}>
-                        <XAxis type="number" tick={{fill:"#3a3a55",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`}/>
-                        <YAxis type="category" dataKey="s" tick={{fill:"#aaa",fontSize:11,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} width={55}/>
-                        <ReferenceLine x={0} stroke="#2a2a3a"/>
-                        <Tooltip contentStyle={{background:"#10101c",border:"1px solid #252535",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} formatter={(v,n,p)=>[`$${v.toFixed(2)}`,p.payload.s]}/>
+                        <XAxis type="number" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`}/>
+                        <YAxis type="category" dataKey="s" tick={{fill:"#bbb29a",fontSize:11,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} width={55}/>
+                        <ReferenceLine x={0} stroke="#2a3a55"/>
+                        <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} formatter={(v,n,p)=>[`$${v.toFixed(2)}`,p.payload.s]}/>
                         <Bar dataKey="pnl" radius={[0,3,3,0]}>
                           {metrics.symbols.map((d,i)=><Cell key={i} fill={d.pnl>=0?G:R} fillOpacity={0.85}/>)}
                         </Bar>
@@ -547,16 +547,16 @@ function TradingJournal() {
                     <div style={S.cardHeader}><span style={S.cardTitle}>Setup Performance</span></div>
                     <div style={{overflowY:"auto",maxHeight:210,marginTop:4}}>
                       {metrics.setupPerf.map(s=>(
-                        <div key={s.s} style={{padding:"6px 0",borderBottom:"1px solid #161620"}}>
+                        <div key={s.s} style={{padding:"6px 0",borderBottom:"1px solid #14223a"}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                            <span style={{fontSize:11,color:"#ccc",fontFamily:"'Manrope',sans-serif",fontWeight:600}}>{s.s}</span>
+                            <span style={{fontSize:11,color:"#cec2a3",fontFamily:"'Manrope',sans-serif",fontWeight:600}}>{s.s}</span>
                             <span style={{fontSize:11,color:pnlColor(s.pnl),fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{fmt$(s.pnl)}</span>
                           </div>
                           <div style={{display:"flex",gap:12}}>
-                            <span style={{fontSize:10,color:"#555",fontFamily:"'JetBrains Mono',monospace"}}>{s.n} trades</span>
+                            <span style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{s.n} trades</span>
                             <span style={{fontSize:10,color:parseFloat(s.wr)>=50?G:R,fontFamily:"'JetBrains Mono',monospace"}}>{s.wr}% WR</span>
                           </div>
-                          <div style={{marginTop:4,height:2,background:"#1a1a28",borderRadius:1}}>
+                          <div style={{marginTop:4,height:2,background:"#1c2c45",borderRadius:1}}>
                             <div style={{width:`${s.wr}%`,height:"100%",background:parseFloat(s.wr)>=50?G:R,borderRadius:1,opacity:0.6}}/>
                           </div>
                         </div>
@@ -578,13 +578,13 @@ function TradingJournal() {
                   {opts.map(o=><option key={o} value={o}>{o}</option>)}
                 </select>
               ))}
-              <span style={{marginLeft:"auto",fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
+              <span style={{marginLeft:"auto",fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
             </div>
 
             {filtered.length===0 ? (
               <div style={S.empty}>
                 <div style={{fontSize:36,marginBottom:12}}>📂</div>
-                <div style={{color:"#555",fontSize:13}}>No trades match your filters</div>
+                <div style={{color:"#5a6b88",fontSize:13}}>No trades match your filters</div>
               </div>
             ) : (
               <div style={S.tableWrap}>
@@ -600,18 +600,18 @@ function TradingJournal() {
                     {filtered.map(t=>{
                       const p = parseFloat(t.pnl)||0;
                       return (
-                        <tr key={t.id} style={S.tr} onClick={()=>{setSelected(t);setView("detail");}} onMouseEnter={e=>e.currentTarget.style.background="#141420"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <tr key={t.id} style={S.tr} onClick={()=>{setSelected(t);setView("detail");}} onMouseEnter={e=>e.currentTarget.style.background="#16243c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                           <td style={{...S.td,...S.tdMono}}>{t.date}</td>
-                          <td style={{...S.td,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"#e8e8f0"}}>{t.symbol}</td>
+                          <td style={{...S.td,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"#eee0bf"}}>{t.symbol}</td>
                           <td style={{...S.td}}><span style={{...S.dirBadge,background:t.direction==="Long"?"rgba(0,229,160,0.1)":"rgba(255,69,96,0.1)",color:t.direction==="Long"?G:R}}>{t.direction}</span></td>
-                          <td style={{...S.td,color:"#666",fontSize:11}}>{t.setup}</td>
+                          <td style={{...S.td,color:"#7a8aa8",fontSize:11}}>{t.setup}</td>
                           <td style={{...S.td,...S.tdMono}}>{t.entry?`$${parseFloat(t.entry).toFixed(2)}`:"-"}</td>
                           <td style={{...S.td,...S.tdMono}}>{t.exit?`$${parseFloat(t.exit).toFixed(2)}`:"-"}</td>
                           <td style={{...S.td,...S.tdMono}}>{t.size||"-"}</td>
                           <td style={{...S.td,...S.tdMono,color:pnlColor(p),fontWeight:700}}>{fmt$(p)}</td>
-                          <td style={{...S.td,...S.tdMono,color:t.rMultiple?pnlColor(parseFloat(t.rMultiple)):"#444"}}>{t.rMultiple?fmtN(t.rMultiple)+"R":"-"}</td>
+                          <td style={{...S.td,...S.tdMono,color:t.rMultiple?pnlColor(parseFloat(t.rMultiple)):"#4a5a78"}}>{t.rMultiple?fmtN(t.rMultiple)+"R":"-"}</td>
                           <td style={{...S.td}}><span style={{...S.gradeBadge,...gradeStyle(t.grade)}}>{t.grade}</span></td>
-                          <td style={{...S.td,fontSize:11,color:"#555"}}>{t.emotion}</td>
+                          <td style={{...S.td,fontSize:11,color:"#5a6b88"}}>{t.emotion}</td>
                           <td style={{...S.td,textAlign:"right"}}>
                             {(t.screenshots||[]).length > 0 && (
                               <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace"}}>📷 {t.screenshots.length}</span>
@@ -629,7 +629,7 @@ function TradingJournal() {
 
         {(view==="add"||view==="edit") && (
           <div style={S.page}>
-            <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:20,color:"#e8e8f0",marginBottom:24,letterSpacing:-0.5}}>
+            <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:20,color:"#eee0bf",marginBottom:24,letterSpacing:-0.5}}>
               {view==="edit"?"Edit Trade":"Log New Trade"}
             </div>
             <div style={S.formGrid}>
@@ -641,8 +641,8 @@ function TradingJournal() {
                   {["Long","Short"].map(d=>(
                     <button key={d} onClick={()=>setForm(p=>({...p,direction:d}))} style={{...S.toggleBtn,flex:1,
                       background:form.direction===d?(d==="Long"?"rgba(0,229,160,0.15)":"rgba(255,69,96,0.15)"):"transparent",
-                      color:form.direction===d?(d==="Long"?G:R):"#555",
-                      borderColor:form.direction===d?(d==="Long"?G:R):"#252535"}}>{d}</button>
+                      color:form.direction===d?(d==="Long"?G:R):"#5a6b88",
+                      borderColor:form.direction===d?(d==="Long"?G:R):"#26385a"}}>{d}</button>
                   ))}
                 </div>
               </Field>
@@ -663,7 +663,7 @@ function TradingJournal() {
                   {GRADES.map(g=>(
                     <button key={g} onClick={()=>setForm(p=>({...p,grade:g}))} style={{...S.toggleBtn,flex:1,fontSize:11,
                       background:form.grade===g?"rgba(201,168,64,0.15)":"transparent",
-                      color:form.grade===g?GOLD:"#555",borderColor:form.grade===g?GOLD:"#252535"}}>{g}</button>
+                      color:form.grade===g?GOLD:"#5a6b88",borderColor:form.grade===g?GOLD:"#26385a"}}>{g}</button>
                   ))}
                 </div>
               </Field>
@@ -689,7 +689,7 @@ function TradingJournal() {
                     {(form.screenshots||[]).map((src, i) => (
                       <div key={i} style={{position:"relative"}}>
                         <img src={src} alt={`shot-${i+1}`}
-                          style={{height:80,width:80,objectFit:"cover",borderRadius:6,border:"1px solid #252535"}}
+                          style={{height:80,width:80,objectFit:"cover",borderRadius:6,border:"1px solid #26385a"}}
                         />
                         <button onClick={()=>removeScreenshot(i)} title="Remove" style={{
                           position:"absolute",top:-6,right:-6,background:"#A56250",border:"none",
@@ -721,7 +721,7 @@ function TradingJournal() {
           <div style={S.page}>
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
               <button style={S.backBtn} onClick={()=>setView("journal")}>← Back</button>
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:22,color:"#e8e8f0"}}>{selected.symbol}</div>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:22,color:"#eee0bf"}}>{selected.symbol}</div>
               <span style={{...S.dirBadge,background:selected.direction==="Long"?"rgba(0,229,160,0.1)":"rgba(255,69,96,0.1)",color:selected.direction==="Long"?G:R,fontSize:12,padding:"4px 10px"}}>{selected.direction}</span>
               <span style={{marginLeft:"auto",fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:22,color:pnlColor(selected.pnl)}}>{fmt$(selected.pnl)}</span>
             </div>
@@ -741,14 +741,14 @@ function TradingJournal() {
                     {l:"Exit",v:selected.exit?`$${parseFloat(selected.exit).toFixed(4)}`:"-"},
                     {l:"Size",v:selected.size||"-"},
                     {l:"P&L",v:fmt$(selected.pnl),c:pnlColor(selected.pnl)},
-                    {l:"R-Multiple",v:selected.rMultiple?fmtN(selected.rMultiple)+"R":"-",c:selected.rMultiple?pnlColor(parseFloat(selected.rMultiple)):"#444"},
+                    {l:"R-Multiple",v:selected.rMultiple?fmtN(selected.rMultiple)+"R":"-",c:selected.rMultiple?pnlColor(parseFloat(selected.rMultiple)):"#4a5a78"},
                     {l:"Setup",v:selected.setup||"-"},
                     {l:"Grade",v:selected.grade,c:GOLD},
                     {l:"Emotion",v:selected.emotion||"-"},
                   ].map(m=>(
-                    <div key={m.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #161620"}}>
-                      <span style={{fontSize:12,color:"#5a5a75",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
-                      <span style={{fontSize:12,color:m.c||"#c8c8dc",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{m.v}</span>
+                    <div key={m.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #14223a"}}>
+                      <span style={{fontSize:12,color:"#7e8aa4",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
+                      <span style={{fontSize:12,color:m.c||"#d6c89a",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{m.v}</span>
                     </div>
                   ))}
                 </div>
@@ -758,28 +758,28 @@ function TradingJournal() {
                 {selected.notes && (
                   <div style={S.card}>
                     <div style={S.cardHeader}><span style={S.cardTitle}>Notes</span></div>
-                    <p style={{fontSize:13,color:"#8888a8",lineHeight:1.7,fontFamily:"'Manrope',sans-serif",whiteSpace:"pre-wrap"}}>{selected.notes}</p>
+                    <p style={{fontSize:13,color:"#a8a886",lineHeight:1.7,fontFamily:"'Manrope',sans-serif",whiteSpace:"pre-wrap"}}>{selected.notes}</p>
                   </div>
                 )}
                 {(selected.screenshots||[]).length > 0 && (
                   <div style={S.card}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Chart Screenshots</span>
-                      <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>{selected.screenshots.length} {selected.screenshots.length===1?"image":"images"}</span>
+                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{selected.screenshots.length} {selected.screenshots.length===1?"image":"images"}</span>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:selected.screenshots.length===1?"1fr":"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginTop:4}}>
                       {selected.screenshots.map((src, i) => (
                         <div key={i} onClick={()=>setLightbox({urls:selected.screenshots,index:i})}
                           style={{display:"block",lineHeight:0,cursor:"zoom-in"}}>
                           <img src={src} alt={`chart-${i+1}`}
-                            style={{width:"100%",borderRadius:6,border:"1px solid #1e1e2e"}}/>
+                            style={{width:"100%",borderRadius:6,border:"1px solid #1c2c45"}}/>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
                 {!selected.notes && (selected.screenshots||[]).length === 0 && (
-                  <div style={{...S.card,color:"#333",fontSize:13,fontFamily:"'Manrope',sans-serif"}}>No notes or screenshots attached.</div>
+                  <div style={{...S.card,color:"#36465e",fontSize:13,fontFamily:"'Manrope',sans-serif"}}>No notes or screenshots attached.</div>
                 )}
               </div>
             </div>
@@ -820,9 +820,9 @@ function TradingJournal() {
         <div style={{
           position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",
           zIndex:2000,
-          background: toast.type==="ok" ? "rgba(0,229,160,0.12)" : toast.type==="err" ? "rgba(255,69,96,0.12)" : "#0f0f1a",
-          border: `1px solid ${toast.type==="ok" ? G : toast.type==="err" ? R : "#252535"}`,
-          color: toast.type==="ok" ? G : toast.type==="err" ? R : "#ccc",
+          background: toast.type==="ok" ? "rgba(0,229,160,0.12)" : toast.type==="err" ? "rgba(255,69,96,0.12)" : "#121e34",
+          border: `1px solid ${toast.type==="ok" ? G : toast.type==="err" ? R : "#26385a"}`,
+          color: toast.type==="ok" ? G : toast.type==="err" ? R : "#cec2a3",
           padding:"12px 20px",borderRadius:8,
           fontSize:13,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,
           backdropFilter:"blur(8px)",
@@ -912,7 +912,7 @@ function StrategyPage({ requireUnlock, showToast }) {
   return (
     <div>
       <div style={{textAlign:"center",marginBottom:24}}>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#e8e8f0",letterSpacing:1,lineHeight:1.1}}>Trading Rules &amp; Lessons</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#eee0bf",letterSpacing:1,lineHeight:1.1}}>Trading Rules &amp; Lessons</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:8}}>
           <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
           <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:4,textTransform:"uppercase"}}>The Playbook</span>
@@ -947,7 +947,7 @@ function StrategyPage({ requireUnlock, showToast }) {
         border:`1px solid ${GOLD}55`,borderRadius:12,textAlign:"center"
       }}>
         <div style={{fontSize:9,color:GOLD,letterSpacing:4,fontFamily:"'JetBrains Mono',monospace",marginBottom:10}}>KEY REMINDER</div>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:20,color:"#e8e8f0",lineHeight:1.5,maxWidth:600,margin:"0 auto"}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:20,color:"#eee0bf",lineHeight:1.5,maxWidth:600,margin:"0 auto"}}>
           Patience is part of the strategy. Wait for confirmation, follow the structure, avoid emotional entries.
         </div>
         <div style={{marginTop:12,fontSize:11,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:3,textTransform:"uppercase"}}>
@@ -963,7 +963,7 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
     <div style={{...styles.card, padding:20, borderColor: accent + "33"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,paddingBottom:10,borderBottom:`1px solid ${accent}22`}}>
         <div>
-          <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:14,color:"#e8e8f0",letterSpacing:0.3}}>{title}</div>
+          <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:14,color:"#eee0bf",letterSpacing:0.3}}>{title}</div>
           <div style={{fontSize:9,color:accent,fontFamily:"'JetBrains Mono',monospace",letterSpacing:2,textTransform:"uppercase",marginTop:3}}>{subtitle}</div>
         </div>
         <button onClick={onAdd} disabled={busy} style={{
@@ -972,7 +972,7 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
           fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:700
         }}>+ ADD</button>
       </div>
-      {loading && <div style={{fontSize:12,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>loading…</div>}
+      {loading && <div style={{fontSize:12,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>loading…</div>}
       <ol style={{listStyle:"none",padding:"0 4px 0 0",margin:0,display:"flex",flexDirection:"column",gap:10,maxHeight:380,overflowY:"auto",overscrollBehavior:"contain"}}>
         {items.map((it, i) => {
           const editing = editId === it.id;
@@ -989,8 +989,8 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
                       autoFocus value={draft}
                       onChange={(e)=>setDraft(e.target.value)}
                       style={{
-                        width:"100%",background:"#0b0b13",border:`1px solid ${accent}55`,
-                        borderRadius:6,padding:"8px 10px",color:"#e8e8f0",
+                        width:"100%",background:"#0e1a2e",border:`1px solid ${accent}55`,
+                        borderRadius:6,padding:"8px 10px",color:"#eee0bf",
                         fontSize:13,fontFamily:"'Manrope',sans-serif",lineHeight:1.5,
                         minHeight:60,resize:"vertical",outline:"none"
                       }}
@@ -1002,15 +1002,15 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
                         fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
                       }}>SAVE</button>
                       <button disabled={busy} onClick={onCancel} style={{
-                        background:"transparent",border:"1px solid #252535",borderRadius:6,
-                        padding:"5px 12px",color:"#666",fontSize:11,cursor:"pointer",
+                        background:"transparent",border:"1px solid #26385a",borderRadius:6,
+                        padding:"5px 12px",color:"#7a8aa8",fontSize:11,cursor:"pointer",
                         fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
                       }}>CANCEL</button>
                     </div>
                   </div>
                 ) : (
                   <div style={{display:"flex",gap:8,alignItems:"flex-start",justifyContent:"space-between"}}>
-                    <span style={{fontSize:13,color:"#c8c8dc",lineHeight:1.55,fontFamily:"'Manrope',sans-serif"}}>{it.text}</span>
+                    <span style={{fontSize:13,color:"#d6c89a",lineHeight:1.55,fontFamily:"'Manrope',sans-serif"}}>{it.text}</span>
                     <div style={{display:"flex",gap:4,flexShrink:0}}>
                       <button onClick={()=>onEdit(it)} title="Edit" style={iconBtn(accent)}>✎</button>
                       <button onClick={()=>onDelete(it.id)} title="Delete" style={iconBtn("#A56250")}>×</button>
@@ -1040,7 +1040,7 @@ function StrategyDiagram() {
     <div style={{...styles.card, padding:16}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
         <span style={styles.cardTitle}>Setup Diagram</span>
-        <span style={{fontSize:10,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>HIGH · OTE · DEMAND · TP</span>
+        <span style={{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>HIGH · OTE · DEMAND · TP</span>
       </div>
       <svg viewBox="0 0 800 280" style={{width:"100%",height:"auto",display:"block"}} preserveAspectRatio="xMidYMid meet">
         <defs>
@@ -1075,12 +1075,12 @@ function StrategyDiagram() {
         <text x="776" y="220" fill={R} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="end">SL</text>
 
         {/* LOW line */}
-        <line x1="20" y1="250" x2="780" y2="250" stroke="#777" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5"/>
-        <text x="24" y="266" fill="#777" fontSize="10" fontFamily="JetBrains Mono, monospace">LOW</text>
+        <line x1="20" y1="250" x2="780" y2="250" stroke="#8b9bb8" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5"/>
+        <text x="24" y="266" fill="#8b9bb8" fontSize="10" fontFamily="JetBrains Mono, monospace">LOW</text>
 
         {/* Price path: start near high → drop through demand to OTE → bounce up into demand → break up to TP */}
         <path d="M 40 80 L 90 60 L 140 90 L 190 130 L 240 175 L 290 195 L 340 165 L 390 130 L 440 115 L 490 90 L 550 65 L 620 45 L 700 35"
-              fill="none" stroke="#c8c8dc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              fill="none" stroke="#d6c89a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
 
         {/* Markers */}
         <circle cx="90" cy="60" r="4" fill={GOLD}/>
@@ -1089,7 +1089,7 @@ function StrategyDiagram() {
         <circle cx="290" cy="195" r="4" fill={GOLD}/>
         <text x="290" y="216" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">OTE touch</text>
 
-        <circle cx="440" cy="115" r="5" fill={G} stroke="#0f0f1a" strokeWidth="1"/>
+        <circle cx="440" cy="115" r="5" fill={G} stroke="#121e34" strokeWidth="1"/>
         <text x="440" y="100" fill={G} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="middle" fontWeight="700">ENTRY · CHOCH</text>
 
         {/* Arrow to TP */}
@@ -1167,7 +1167,7 @@ function TargetPage({ requireUnlock, showToast }) {
   return (
     <div>
       <div style={{textAlign:"center",marginBottom:24}}>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#e8e8f0",letterSpacing:1,lineHeight:1.1}}>Compounding Targets</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#eee0bf",letterSpacing:1,lineHeight:1.1}}>Compounding Targets</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:8}}>
           <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
           <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:4,textTransform:"uppercase"}}>10% × 50 Steps</span>
@@ -1183,14 +1183,14 @@ function TargetPage({ requireUnlock, showToast }) {
       </div>
 
       <div style={{...styles.card, padding:0, overflow:"hidden"}}>
-        <div style={{padding:"12px 16px",borderBottom:"1px solid #1a1a28",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #1c2c45",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={styles.cardTitle}>Steps</span>
-          <span style={{fontSize:11,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>{loading?"loading…":`${completed}/${TARGET_COUNT}`}</span>
+          <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{loading?"loading…":`${completed}/${TARGET_COUNT}`}</span>
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
             <thead>
-              <tr style={{background:"#0b0b13"}}>
+              <tr style={{background:"#0e1a2e"}}>
                 <th style={tgTh}>#</th>
                 <th style={tgTh}>Gain (10%)</th>
                 <th style={tgTh}>Balance</th>
@@ -1202,15 +1202,15 @@ function TargetPage({ requireUnlock, showToast }) {
                 const done = !!doneMap[r.step]?.done;
                 const isBusy = busy === r.step;
                 return (
-                  <tr key={r.step} style={{borderBottom:"1px solid #111118",background: done?"rgba(212,184,110,0.04)":"transparent"}}>
-                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:done?GOLD:"#777",fontWeight:700,width:42}}>{String(r.step).padStart(2,"0")}</td>
+                  <tr key={r.step} style={{borderBottom:"1px solid #14223a",background: done?"rgba(212,184,110,0.04)":"transparent"}}>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:done?GOLD:"#8b9bb8",fontWeight:700,width:42}}>{String(r.step).padStart(2,"0")}</td>
                     <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:G}}>+{money(r.gain)}</td>
-                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:"#e8e8f0",fontWeight:600}}>{money(r.balance)}</td>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:"#eee0bf",fontWeight:600}}>{money(r.balance)}</td>
                     <td style={{...tgTd,textAlign:"center",width:90}}>
                       <button disabled={isBusy} onClick={()=>toggle(r.step)} style={{
                         background: done?"rgba(212,184,110,0.15)":"transparent",
-                        border:`1px solid ${done?GOLD:"#252535"}`,borderRadius:6,
-                        padding:"5px 12px",color: done?GOLD:"#666",fontSize:11,
+                        border:`1px solid ${done?GOLD:"#26385a"}`,borderRadius:6,
+                        padding:"5px 12px",color: done?GOLD:"#7a8aa8",fontSize:11,
                         cursor:isBusy?"wait":"pointer",fontFamily:"'JetBrains Mono',monospace",
                         fontWeight:700,letterSpacing:1,opacity:isBusy?0.5:1,
                         minWidth:70
@@ -1231,13 +1231,13 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div style={{...styles.kpiCard}}>
       <div style={styles.kpiLabel}>{label}</div>
-      <div style={{...styles.kpiValue, fontSize:20, color:color||"#e8e8f0"}}>{value}</div>
+      <div style={{...styles.kpiValue, fontSize:20, color:color||"#eee0bf"}}>{value}</div>
       <div style={styles.kpiSub}>{sub}</div>
     </div>
   );
 }
 
-const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#3a3a55",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1a1a28",whiteSpace:"nowrap"};
+const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
 
 function Lightbox({ urls, index, onChange, onClose }) {
@@ -1265,14 +1265,14 @@ function Lightbox({ urls, index, onChange, onClose }) {
     }}>
       <button onClick={(e)=>{e.stopPropagation();onClose();}} style={{
         position:"fixed",top:14,left:14,zIndex:1600,
-        background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:8,
-        padding:"10px 16px",color:"#e8e8f0",fontSize:13,cursor:"pointer",
+        background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:8,
+        padding:"10px 16px",color:"#eee0bf",fontSize:13,cursor:"pointer",
         fontFamily:"'Manrope',sans-serif",fontWeight:600,letterSpacing:0.5,
         display:"flex",alignItems:"center",gap:6,backdropFilter:"blur(8px)"
       }}>← Back</button>
       <div style={{
         position:"fixed",top:14,right:14,zIndex:1600,
-        background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:8,
+        background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:8,
         padding:"10px 12px",color:GOLD,fontSize:11,
         fontFamily:"'JetBrains Mono',monospace",backdropFilter:"blur(8px)"
       }}>{index+1} / {total}</div>
@@ -1282,15 +1282,15 @@ function Lightbox({ urls, index, onChange, onClose }) {
         <>
           <button onClick={(e)=>{e.stopPropagation();prev();}} style={{
             position:"fixed",left:8,top:"50%",transform:"translateY(-50%)",zIndex:1600,
-            background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:"50%",
-            width:44,height:44,color:"#e8e8f0",fontSize:20,cursor:"pointer",
+            background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:"50%",
+            width:44,height:44,color:"#eee0bf",fontSize:20,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"center",
             backdropFilter:"blur(8px)"
           }}>‹</button>
           <button onClick={(e)=>{e.stopPropagation();next();}} style={{
             position:"fixed",right:8,top:"50%",transform:"translateY(-50%)",zIndex:1600,
-            background:"rgba(15,15,26,0.85)",border:"1px solid #252535",borderRadius:"50%",
-            width:44,height:44,color:"#e8e8f0",fontSize:20,cursor:"pointer",
+            background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:"50%",
+            width:44,height:44,color:"#eee0bf",fontSize:20,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"center",
             backdropFilter:"blur(8px)"
           }}>›</button>
@@ -1303,53 +1303,53 @@ function Lightbox({ urls, index, onChange, onClose }) {
 function Field({label, children}) {
   return (
     <div>
-      <label style={{display:"block",fontSize:10,color:"#4a4a65",fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>{label}</label>
+      <label style={{display:"block",fontSize:10,color:"#6b7798",fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>{label}</label>
       {children}
     </div>
   );
 }
 
 function gradeStyle(g) {
-  const map = {"A+":GOLD,"A":"#aaa","B":"#888","C":"#666","D":R};
-  return {color:map[g]||"#666", borderColor:(map[g]||"#444")+"55", background:(map[g]||"#444")+"11"};
+  const map = {"A+":GOLD,"A":"#bbb29a","B":"#9caac4","C":"#7a8aa8","D":R};
+  return {color:map[g]||"#7a8aa8", borderColor:(map[g]||"#4a5a78")+"55", background:(map[g]||"#4a5a78")+"11"};
 }
 
 const styles = {
-  root:{display:"flex",flexDirection:"column",height:"100dvh",minHeight:"100vh",background:"#080810",color:"#e8e8f0",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
-  header:{display:"flex",alignItems:"center",gap:16,padding:"0 16px",height:52,background:"#0b0b13",borderBottom:"1px solid #151520",flexShrink:0},
+  root:{display:"flex",flexDirection:"column",height:"100dvh",minHeight:"100vh",background:"#0b1424",color:"#eee0bf",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
+  header:{display:"flex",alignItems:"center",gap:16,padding:"0 16px",height:52,background:"#0e1a2e",borderBottom:"1px solid #14223a",flexShrink:0},
   logo:{display:"flex",alignItems:"center",gap:8},
   nav:{display:"flex",gap:2,flexShrink:1,minWidth:0},
-  navBtn:{background:"none",border:"none",color:"#4a4a65",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,padding:"6px 10px",borderRadius:6,cursor:"pointer",letterSpacing:0.3,whiteSpace:"nowrap"},
-  navBtnActive:{color:"#e8e8f0",background:"#14141e"},
+  navBtn:{background:"none",border:"none",color:"#7e8aa4",fontSize:11,fontFamily:"'Cinzel',serif",fontWeight:500,padding:"6px 12px",borderRadius:6,cursor:"pointer",letterSpacing:1.5,whiteSpace:"nowrap",textTransform:"uppercase"},
+  navBtnActive:{color:"#eee0bf",background:"#16243c",fontWeight:600},
   headerRight:{marginLeft:"auto",display:"flex",alignItems:"center",gap:10,flexShrink:0},
   body:{flex:1,overflowY:"auto",overscrollBehavior:"contain",padding:"20px 16px 48px",WebkitOverflowScrolling:"touch"},
   page:{maxWidth:1300,margin:"0 auto"},
   kpiRow:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:14},
-  kpiCard:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:"14px 16px"},
-  kpiLabel:{fontSize:10,color:"#3a3a55",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",marginBottom:6},
+  kpiCard:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:"14px 16px"},
+  kpiLabel:{fontSize:10,color:"#7e8aa4",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,marginBottom:6},
   kpiValue:{fontSize:22,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,lineHeight:1,marginBottom:4},
-  kpiSub:{fontSize:10,color:"#3a3a55",fontFamily:"'JetBrains Mono',monospace"},
+  kpiSub:{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"},
   chartsRow:{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap"},
-  card:{background:"#0f0f1a",border:"1px solid #1a1a28",borderRadius:10,padding:14,minWidth:0},
+  card:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:14,minWidth:0},
   cardHeader:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12},
-  cardTitle:{fontSize:12,fontWeight:700,color:"#8888aa",letterSpacing:0.5,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace"},
-  empty:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 0",color:"#888"},
+  cardTitle:{fontSize:12,fontWeight:600,color:"#c6a44c",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif"},
+  empty:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 0",color:"#9caac4"},
   filterRow:{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"},
-  filterInput:{background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:6,padding:"8px 12px",color:"#ccc",fontSize:13,fontFamily:"'JetBrains Mono',monospace",width:130,maxWidth:"100%"},
-  filterSelect:{background:"#0f0f1a",border:"1px solid #1e1e2e",borderRadius:6,padding:"8px 12px",color:"#ccc",fontSize:13,fontFamily:"'JetBrains Mono',monospace"},
-  tableWrap:{overflowX:"auto",borderRadius:10,border:"1px solid #1a1a28"},
-  table:{width:"100%",borderCollapse:"collapse",background:"#0f0f1a"},
-  th:{textAlign:"left",padding:"10px 14px",fontSize:9,color:"#3a3a55",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1a1a28",background:"#0b0b13",whiteSpace:"nowrap"},
-  tr:{borderBottom:"1px solid #111118",cursor:"pointer",transition:"background 0.15s"},
+  filterInput:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:6,padding:"8px 12px",color:"#cec2a3",fontSize:13,fontFamily:"'JetBrains Mono',monospace",width:130,maxWidth:"100%"},
+  filterSelect:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:6,padding:"8px 12px",color:"#cec2a3",fontSize:13,fontFamily:"'JetBrains Mono',monospace"},
+  tableWrap:{overflowX:"auto",borderRadius:10,border:"1px solid #1c2c45"},
+  table:{width:"100%",borderCollapse:"collapse",background:"#121e34"},
+  th:{textAlign:"left",padding:"10px 14px",fontSize:10,color:"#c6a44c",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,borderBottom:"1px solid #1c2c45",background:"#0e1a2e",whiteSpace:"nowrap"},
+  tr:{borderBottom:"1px solid #14223a",cursor:"pointer",transition:"background 0.15s"},
   td:{padding:"11px 14px",fontSize:12},
   tdMono:{fontFamily:"'JetBrains Mono',monospace"},
   dirBadge:{display:"inline-block",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"2px 7px",borderRadius:4,letterSpacing:0.5},
   gradeBadge:{display:"inline-block",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"2px 7px",borderRadius:4,border:"1px solid"},
   formGrid:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:12},
-  input:{width:"100%",background:"#0b0b13",border:"1px solid #1e1e2e",borderRadius:6,padding:"10px 12px",color:"#e8e8f0",fontSize:16,fontFamily:"'JetBrains Mono',monospace"},
-  toggleBtn:{background:"transparent",border:"1px solid #252535",borderRadius:6,padding:"9px 10px",color:"#555",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",transition:"all 0.15s"},
+  input:{width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,padding:"10px 12px",color:"#eee0bf",fontSize:16,fontFamily:"'JetBrains Mono',monospace"},
+  toggleBtn:{background:"transparent",border:"1px solid #26385a",borderRadius:6,padding:"9px 10px",color:"#5a6b88",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",transition:"all 0.15s"},
   primaryBtn:{background:GOLD,border:"none",borderRadius:7,padding:"10px 24px",color:"#0a0a0a",fontSize:13,fontWeight:700,fontFamily:"'Manrope',sans-serif",cursor:"pointer",letterSpacing:0.3},
-  ghostBtn:{background:"transparent",border:"1px solid #252535",borderRadius:7,padding:"10px 20px",color:"#777",fontSize:13,fontFamily:"'Manrope',sans-serif",cursor:"pointer",fontWeight:600},
-  uploadBtn:{background:"transparent",border:"1px dashed #252535",borderRadius:7,padding:"10px 18px",color:"#666",fontSize:12,fontFamily:"'Manrope',sans-serif",cursor:"pointer"},
-  backBtn:{background:"none",border:"none",color:"#555",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",padding:0},
+  ghostBtn:{background:"transparent",border:"1px solid #26385a",borderRadius:7,padding:"10px 20px",color:"#8b9bb8",fontSize:13,fontFamily:"'Manrope',sans-serif",cursor:"pointer",fontWeight:600},
+  uploadBtn:{background:"transparent",border:"1px dashed #26385a",borderRadius:7,padding:"10px 18px",color:"#7a8aa8",fontSize:12,fontFamily:"'Manrope',sans-serif",cursor:"pointer"},
+  backBtn:{background:"none",border:"none",color:"#5a6b88",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",padding:0},
 };
