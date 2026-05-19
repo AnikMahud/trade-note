@@ -44,6 +44,25 @@ const fmtN = (n, d=2) => {
 };
 const pnlColor = (n) => (parseFloat(n) || 0) >= 0 ? G : R;
 
+function exportCsv(trades) {
+  const cols = ["id","date","time","symbol","direction","setup","entry","exit","size","pnl","rMultiple","grade","emotion","notes"];
+  const esc = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [cols.join(",")];
+  trades.forEach(t => lines.push(cols.map(c => esc(t[c])).join(",")));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `tradevault-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function App() {
   return <TradingJournal />;
 }
@@ -78,7 +97,7 @@ function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to
         padding:32,minWidth:300,textAlign:"center",
         boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
       }}>
-        <img src="/logo.png" alt="Mahmudur TradeVault" style={{width:160,height:"auto",objectFit:"contain",marginBottom:8}}/>
+        <img src="/logo.webp" alt="Mahmudur TradeVault" style={{width:160,height:"auto",objectFit:"contain",marginBottom:8}}/>
         <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:14,color:"#eee0bf",lineHeight:1.2,marginTop:4}}>{title}</div>
         <div style={{fontSize:11,color:"#7e8aa4",marginTop:6,letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{subtitle}</div>
         <input
@@ -197,15 +216,40 @@ function TradingJournal() {
     setUnlocked(false);
   };
 
+  const reloadTrades = async () => {
+    try {
+      const data = await loadTrades();
+      setTrades(data);
+      setSelected(s => s ? (data.find(d => d.id === s.id) || s) : s);
+    } catch (e) { console.error(e); }
+  };
   useEffect(() => {
+    (async () => { await reloadTrades(); setLoaded(true); })();
+  }, []);
+
+  const imgRetryRef = useRef(0);
+  const onImgError = () => {
+    const now = Date.now();
+    if (now - imgRetryRef.current < 5000) return;
+    imgRetryRef.current = now;
+    reloadTrades();
+  };
+
+  const [strategyRules, setStrategyRules] = useState([]);
+  const [checkedRules, setCheckedRules] = useState({});
+  useEffect(() => {
+    if (view !== "add") return;
     (async () => {
       try {
-        const data = await loadTrades();
-        setTrades(data);
-      } catch (e) { console.error(e); }
-      setLoaded(true);
+        const r = await fetch("/api/strategy");
+        if (!r.ok) return;
+        const list = await r.json();
+        setStrategyRules(list.filter(x => x.type === "Rule").sort((a,b)=>a.order-b.order));
+      } catch {}
     })();
-  }, []);
+    setCheckedRules({});
+  }, [view, form.id]);
+  const allRulesChecked = strategyRules.length > 0 && strategyRules.every(r => checkedRules[r.id]);
 
   const addTrade = async () => {
     if (!form.symbol) { showToast("Symbol is required", "err"); return; }
@@ -371,7 +415,7 @@ function TradingJournal() {
         <>
           <div style={{position:"sticky",top:0,zIndex:50,background:"#0e1a2e",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}>
             <div style={{...S.header, justifyContent:"center", position:"relative"}}>
-              <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
+              <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
               <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
                 {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
                 <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
@@ -408,7 +452,7 @@ function TradingJournal() {
       ) : (
         <div style={S.header}>
           <div style={{display:"flex",alignItems:"center",gap:8,position:"relative",flexShrink:0}}>
-            <img src="/logo.png" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
+            <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
             {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"]].map(([v,l])=>(
@@ -447,6 +491,27 @@ function TradingJournal() {
               </div>
             ) : (
               <>
+                {metrics.streakType === "loss" && metrics.streak >= 3 && (
+                  <div style={{
+                    marginBottom:14,padding:"14px 18px",borderRadius:10,
+                    background:"linear-gradient(135deg, rgba(138,67,57,0.18), rgba(138,67,57,0.04))",
+                    border:`1px solid ${R}66`,
+                    display:"flex",alignItems:"center",gap:14
+                  }}>
+                    <div style={{fontSize:22,lineHeight:1}}>⚠</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontFamily:"'Cinzel',serif",fontSize:12,letterSpacing:2,color:R,textTransform:"uppercase",fontWeight:600}}>Step Back · {metrics.streak} Losses In A Row</div>
+                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:15,color:"#eee0bf",marginTop:4}}>Review your rules before next entry. Patience over revenge.</div>
+                    </div>
+                    <button onClick={()=>setView("strategy")} style={{
+                      background:"transparent",border:`1px solid ${R}66`,borderRadius:6,
+                      padding:"6px 14px",color:R,fontSize:10,cursor:"pointer",
+                      fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase",fontWeight:600,
+                      flexShrink:0
+                    }}>Rules</button>
+                  </div>
+                )}
+
                 <div style={S.kpiRow}>
                   {[
                     {label:"Total P&L", value:fmt$(metrics.totalPnl), color:pnlColor(metrics.totalPnl), sub:`${metrics.total} trades`},
@@ -460,6 +525,14 @@ function TradingJournal() {
                       <div style={S.kpiSub}>{k.sub}</div>
                     </div>
                   ))}
+                </div>
+
+                <div style={{...S.card, marginBottom:14}}>
+                  <div style={S.cardHeader}>
+                    <span style={S.cardTitle}>Calendar Heatmap</span>
+                    <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>last 12 weeks · daily P&L</span>
+                  </div>
+                  <CalendarHeatmap trades={trades}/>
                 </div>
 
                 <div style={S.chartsRow}>
@@ -579,6 +652,11 @@ function TradingJournal() {
                 </select>
               ))}
               <span style={{marginLeft:"auto",fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
+              <button onClick={()=>exportCsv(filtered)} title="Export filtered trades to CSV" style={{
+                background:"transparent",border:`1px solid ${GOLD}55`,borderRadius:6,
+                padding:"7px 12px",color:GOLD,fontSize:10,cursor:"pointer",
+                fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase",fontWeight:600
+              }}>↓ Export</button>
             </div>
 
             {filtered.length===0 ? (
@@ -629,9 +707,39 @@ function TradingJournal() {
 
         {(view==="add"||view==="edit") && (
           <div style={S.page}>
-            <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:20,color:"#eee0bf",marginBottom:24,letterSpacing:-0.5}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:28,color:"#eee0bf",marginBottom:6,letterSpacing:0.5}}>
               {view==="edit"?"Edit Trade":"Log New Trade"}
             </div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:10,color:GOLD,letterSpacing:3,textTransform:"uppercase",marginBottom:22}}>
+              {view==="edit"?"Revise the entry":"A disciplined record"}
+            </div>
+
+            {view==="add" && strategyRules.length > 0 && (
+              <div style={{...S.card, marginBottom:18, borderColor: GOLD+"44"}}>
+                <div style={S.cardHeader}>
+                  <span style={S.cardTitle}>Pre-Trade Checklist</span>
+                  <span style={{fontSize:10,color: allRulesChecked?G:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
+                    {Object.values(checkedRules).filter(Boolean).length}/{strategyRules.length} {allRulesChecked?"✓ ready":"required"}
+                  </span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {strategyRules.map(r => (
+                    <label key={r.id} style={{
+                      display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",
+                      padding:"8px 10px",borderRadius:6,
+                      background: checkedRules[r.id]?"rgba(165,178,133,0.08)":"transparent",
+                      border:`1px solid ${checkedRules[r.id]?G+"44":"#1c2c45"}`,
+                      transition:"all 0.15s"
+                    }}>
+                      <input type="checkbox" checked={!!checkedRules[r.id]}
+                        onChange={(e)=>setCheckedRules(p=>({...p,[r.id]:e.target.checked}))}
+                        style={{marginTop:3,accentColor:GOLD,width:16,height:16,flexShrink:0,cursor:"pointer"}}/>
+                      <span style={{fontSize:13,color: checkedRules[r.id]?"#eee0bf":"#a8a886",lineHeight:1.5,fontFamily:"'Manrope',sans-serif"}}>{r.text}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={S.formGrid}>
               <Field label="Date"><input type="date" style={S.input} value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></Field>
               <Field label="Time (optional)"><input type="time" style={S.input} value={form.time} onChange={e=>setForm(p=>({...p,time:e.target.value}))}/></Field>
@@ -709,7 +817,14 @@ function TradingJournal() {
             </div>
 
             <div style={{display:"flex",gap:10,marginTop:24}}>
-              <button disabled={saving} style={{...S.primaryBtn,opacity:saving?0.6:1,cursor:saving?"wait":"pointer"}} onClick={view==="edit"?updateTrade:addTrade}>
+              <button
+                disabled={saving || (view==="add" && strategyRules.length>0 && !allRulesChecked)}
+                style={{...S.primaryBtn,
+                  opacity: (saving || (view==="add" && strategyRules.length>0 && !allRulesChecked)) ? 0.5 : 1,
+                  cursor: saving?"wait":((view==="add"&&!allRulesChecked&&strategyRules.length>0)?"not-allowed":"pointer")
+                }}
+                title={view==="add" && !allRulesChecked && strategyRules.length>0 ? "Complete the pre-trade checklist first" : ""}
+                onClick={view==="edit"?updateTrade:addTrade}>
                 {saving ? "Saving…" : (view==="edit"?"Update Trade":"Save Trade")}
               </button>
               <button disabled={saving} style={S.ghostBtn} onClick={()=>{if(view==="edit"){setView("detail");}else{setView("journal");}}}>Cancel</button>
@@ -771,7 +886,7 @@ function TradingJournal() {
                       {selected.screenshots.map((src, i) => (
                         <div key={i} onClick={()=>setLightbox({urls:selected.screenshots,index:i})}
                           style={{display:"block",lineHeight:0,cursor:"zoom-in"}}>
-                          <img src={src} alt={`chart-${i+1}`}
+                          <img src={src} alt={`chart-${i+1}`} onError={onImgError}
                             style={{width:"100%",borderRadius:6,border:"1px solid #1c2c45"}}/>
                         </div>
                       ))}
@@ -832,6 +947,100 @@ function TradingJournal() {
           {toast.msg}
         </div>
       )}
+    </div>
+  );
+}
+
+function CalendarHeatmap({ trades }) {
+  const data = useMemo(() => {
+    const map = {};
+    trades.forEach(t => {
+      const d = t.date;
+      if (!d) return;
+      map[d] = (map[d] || 0) + (parseFloat(t.pnl) || 0);
+    });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - 83);
+    while (start.getDay() !== 1) start.setDate(start.getDate() - 1);
+    const weeks = [];
+    const cur = new Date(start);
+    for (let w = 0; w < 13; w++) {
+      const col = [];
+      for (let i = 0; i < 7; i++) {
+        const iso = cur.toISOString().slice(0, 10);
+        const pnl = map[iso];
+        col.push({ iso, dow: cur.getDay(), pnl, future: cur > today });
+        cur.setDate(cur.getDate() + 1);
+      }
+      weeks.push(col);
+    }
+    const vals = Object.values(map).filter(v => v !== 0);
+    const max = vals.length ? Math.max(...vals.map(Math.abs)) : 1;
+    return { weeks, max };
+  }, [trades]);
+
+  const cellSize = 14, gap = 3;
+  const color = (pnl) => {
+    if (pnl === undefined) return "#14223a";
+    if (pnl === 0) return "#1c2c45";
+    const t = Math.min(1, Math.abs(pnl) / data.max);
+    const intensity = 0.25 + 0.75 * t;
+    return pnl > 0 ? `rgba(165,178,133,${intensity})` : `rgba(138,67,57,${intensity})`;
+  };
+
+  const months = [];
+  let lastMonth = -1;
+  data.weeks.forEach((col, wi) => {
+    const m = new Date(col[0].iso).getMonth();
+    if (m !== lastMonth) {
+      months.push({ wi, label: new Date(col[0].iso).toLocaleString("en", { month: "short" }) });
+      lastMonth = m;
+    }
+  });
+
+  return (
+    <div style={{overflowX:"auto",padding:"4px 0"}}>
+      <div style={{display:"flex",gap:6,minWidth:280}}>
+        <div style={{display:"flex",flexDirection:"column",gap,fontSize:9,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace",paddingTop:18}}>
+          {["M","T","W","T","F","S","S"].map((d,i)=>(
+            <div key={i} style={{height:cellSize,lineHeight:`${cellSize}px`}}>{i%2===0?d:""}</div>
+          ))}
+        </div>
+        <div>
+          <div style={{display:"flex",gap,height:14,marginBottom:4,fontSize:9,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>
+            {data.weeks.map((_, wi) => {
+              const m = months.find(x => x.wi === wi);
+              return <div key={wi} style={{width:cellSize,textAlign:"left"}}>{m ? m.label : ""}</div>;
+            })}
+          </div>
+          <div style={{display:"flex",gap}}>
+            {data.weeks.map((col, wi) => (
+              <div key={wi} style={{display:"flex",flexDirection:"column",gap}}>
+                {col.map((d, di) => (
+                  <div key={di}
+                    title={d.future ? "" : `${d.iso}${d.pnl !== undefined ? " · " + (d.pnl >= 0 ? "+" : "") + "$" + d.pnl.toFixed(2) : " · no trade"}`}
+                    style={{
+                      width:cellSize,height:cellSize,borderRadius:3,
+                      background: d.future ? "transparent" : color(d.pnl),
+                      border: d.future ? "1px dashed #1c2c45" : "1px solid rgba(0,0,0,0.15)"
+                    }}/>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,fontSize:10,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>
+            <span>loss</span>
+            <div style={{width:cellSize,height:cellSize,background:color(-data.max),borderRadius:3}}/>
+            <div style={{width:cellSize,height:cellSize,background:color(-data.max*0.5),borderRadius:3}}/>
+            <div style={{width:cellSize,height:cellSize,background:"#1c2c45",borderRadius:3}}/>
+            <div style={{width:cellSize,height:cellSize,background:color(data.max*0.5),borderRadius:3}}/>
+            <div style={{width:cellSize,height:cellSize,background:color(data.max),borderRadius:3}}/>
+            <span>win</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
