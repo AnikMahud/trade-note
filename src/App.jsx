@@ -787,7 +787,7 @@ function TradingJournal() {
         )}
 
         {view==="strategy" && (
-          <div style={S.page}><StrategyPage /></div>
+          <div style={S.page}><StrategyPage requireUnlock={requireUnlock} showToast={showToast}/></div>
         )}
 
         {view==="target" && (
@@ -836,25 +836,79 @@ function TradingJournal() {
   );
 }
 
-const RULES = [
-  "1h chart trend bull/bear. If market is choppy, skip the trade.",
-  "Mark Fibonacci from previous BOS/CHOCH low to current high.",
-  "On 5m chart, wait for market to come into OTE zone.",
-  "Wait for market to touch OTE zone and move into demand zone.",
-  "When market makes CHOCH on demand zone, this becomes the entry point.",
-  "SL = recent support. TP = 1:3 risk reward.",
-];
+function StrategyPage({ requireUnlock, showToast }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
 
-const LESSONS = [
-  "Wait for candle to make CHOCH on demand zone and let the second candle close above it before entry.",
-  "Do not enter immediately on OTE zone CHOCH.",
-  "Wait for price to move up and cross demand zone CHOCH.",
-  "I entered too early because market was in OTE zone.",
-  "Even if SL looks short, patience is important.",
-  "Always check market volume before entering.",
-];
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/strategy");
+        if (!r.ok) throw new Error("api " + r.status);
+        const list = await r.json();
+        setItems(list);
+      } catch (e) { console.warn("strategy load failed:", e); }
+      setLoading(false);
+    })();
+  }, []);
 
-function StrategyPage() {
+  const rules = items.filter(i => i.type === "Rule").sort((a,b)=>a.order-b.order);
+  const lessons = items.filter(i => i.type === "Lesson").sort((a,b)=>a.order-b.order);
+
+  const save = (item) => requireUnlock(async () => {
+    if (!item.text.trim()) { showToast && showToast("Empty text", "err"); return; }
+    setBusy(true);
+    try {
+      const r = await fetch("/api/strategy", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(item),
+      });
+      if (!r.ok) throw new Error("api " + r.status);
+      setItems(prev => {
+        const idx = prev.findIndex(p => p.id === item.id);
+        if (idx >= 0) { const copy = [...prev]; copy[idx] = item; return copy; }
+        return [...prev, item];
+      });
+      setEditId(null); setDraft("");
+      showToast && showToast("Saved ✓", "ok");
+    } catch (e) {
+      console.error(e);
+      showToast && showToast("Save failed: " + (e.message||"err"), "err");
+    } finally { setBusy(false); }
+  });
+
+  const remove = (id) => requireUnlock(async () => {
+    if (!confirm("Delete this item?")) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/strategy?id=${encodeURIComponent(id)}`, { method:"DELETE" });
+      if (!r.ok) throw new Error("api " + r.status);
+      setItems(prev => prev.filter(p => p.id !== id));
+      showToast && showToast("Deleted ✓", "ok");
+    } catch (e) {
+      console.error(e);
+      showToast && showToast("Delete failed", "err");
+    } finally { setBusy(false); }
+  });
+
+  const startEdit = (item) => requireUnlock(() => { setEditId(item.id); setDraft(item.text); });
+  const startAdd = (type) => requireUnlock(() => {
+    const list = type === "Rule" ? rules : lessons;
+    const nextOrder = list.length ? Math.max(...list.map(x=>x.order)) + 1 : 1;
+    const nextId = `${type.toLowerCase()}-${Date.now()}`;
+    setEditId(nextId);
+    setDraft("");
+    setItems(prev => [...prev, { id: nextId, type, order: nextOrder, text: "", _isNew: true }]);
+  });
+
+  const cancelEdit = () => {
+    setItems(prev => prev.filter(p => !p._isNew));
+    setEditId(null); setDraft("");
+  };
+
   return (
     <div>
       <div style={{textAlign:"center",marginBottom:24}}>
@@ -869,8 +923,22 @@ function StrategyPage() {
       <StrategyDiagram />
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))",gap:14,marginTop:20}}>
-        <RuleCard title="Trading Rules" subtitle="Setup checklist" accent={GOLD} items={RULES}/>
-        <RuleCard title="Lessons Learned" subtitle="From mistakes" accent="#A56250" items={LESSONS}/>
+        <RuleCard
+          title="Trading Rules" subtitle="Setup checklist" accent={GOLD}
+          items={rules} loading={loading} busy={busy}
+          editId={editId} draft={draft} setDraft={setDraft}
+          onEdit={startEdit} onCancel={cancelEdit} onDelete={remove}
+          onSave={(it)=>save({...it, text:draft})}
+          onAdd={()=>startAdd("Rule")}
+        />
+        <RuleCard
+          title="Lessons Learned" subtitle="From mistakes" accent="#A56250"
+          items={lessons} loading={loading} busy={busy}
+          editId={editId} draft={draft} setDraft={setDraft}
+          onEdit={startEdit} onCancel={cancelEdit} onDelete={remove}
+          onSave={(it)=>save({...it, text:draft})}
+          onAdd={()=>startAdd("Lesson")}
+        />
       </div>
 
       <div style={{
@@ -890,7 +958,7 @@ function StrategyPage() {
   );
 }
 
-function RuleCard({ title, subtitle, accent, items }) {
+function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft, setDraft, onEdit, onCancel, onDelete, onSave, onAdd }) {
   return (
     <div style={{...styles.card, padding:20, borderColor: accent + "33"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,paddingBottom:10,borderBottom:`1px solid ${accent}22`}}>
@@ -898,57 +966,135 @@ function RuleCard({ title, subtitle, accent, items }) {
           <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:800,fontSize:14,color:"#e8e8f0",letterSpacing:0.3}}>{title}</div>
           <div style={{fontSize:9,color:accent,fontFamily:"'JetBrains Mono',monospace",letterSpacing:2,textTransform:"uppercase",marginTop:3}}>{subtitle}</div>
         </div>
+        <button onClick={onAdd} disabled={busy} style={{
+          background:"transparent",border:`1px solid ${accent}66`,borderRadius:6,
+          padding:"5px 10px",color:accent,fontSize:11,cursor:"pointer",
+          fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:700
+        }}>+ ADD</button>
       </div>
+      {loading && <div style={{fontSize:12,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>loading…</div>}
       <ol style={{listStyle:"none",padding:0,margin:0,display:"flex",flexDirection:"column",gap:10}}>
-        {items.map((it, i) => (
-          <li key={i} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-            <span style={{
-              flexShrink:0,fontFamily:"'JetBrains Mono',monospace",fontSize:10,
-              color:accent,fontWeight:700,minWidth:18,paddingTop:2
-            }}>{String(i+1).padStart(2,"0")}</span>
-            <span style={{fontSize:13,color:"#c8c8dc",lineHeight:1.55,fontFamily:"'Manrope',sans-serif"}}>{it}</span>
-          </li>
-        ))}
+        {items.map((it, i) => {
+          const editing = editId === it.id;
+          return (
+            <li key={it.id} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+              <span style={{
+                flexShrink:0,fontFamily:"'JetBrains Mono',monospace",fontSize:10,
+                color:accent,fontWeight:700,minWidth:18,paddingTop:6
+              }}>{String(i+1).padStart(2,"0")}</span>
+              <div style={{flex:1,minWidth:0}}>
+                {editing ? (
+                  <div>
+                    <textarea
+                      autoFocus value={draft}
+                      onChange={(e)=>setDraft(e.target.value)}
+                      style={{
+                        width:"100%",background:"#0b0b13",border:`1px solid ${accent}55`,
+                        borderRadius:6,padding:"8px 10px",color:"#e8e8f0",
+                        fontSize:13,fontFamily:"'Manrope',sans-serif",lineHeight:1.5,
+                        minHeight:60,resize:"vertical",outline:"none"
+                      }}
+                    />
+                    <div style={{display:"flex",gap:6,marginTop:6}}>
+                      <button disabled={busy} onClick={()=>onSave(it)} style={{
+                        background:accent,border:"none",borderRadius:6,padding:"5px 12px",
+                        color:"#0a0a0a",fontSize:11,cursor:"pointer",fontWeight:700,
+                        fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
+                      }}>SAVE</button>
+                      <button disabled={busy} onClick={onCancel} style={{
+                        background:"transparent",border:"1px solid #252535",borderRadius:6,
+                        padding:"5px 12px",color:"#666",fontSize:11,cursor:"pointer",
+                        fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
+                      }}>CANCEL</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{display:"flex",gap:8,alignItems:"flex-start",justifyContent:"space-between"}}>
+                    <span style={{fontSize:13,color:"#c8c8dc",lineHeight:1.55,fontFamily:"'Manrope',sans-serif"}}>{it.text}</span>
+                    <div style={{display:"flex",gap:4,flexShrink:0}}>
+                      <button onClick={()=>onEdit(it)} title="Edit" style={iconBtn(accent)}>✎</button>
+                      <button onClick={()=>onDelete(it.id)} title="Delete" style={iconBtn("#A56250")}>×</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
 }
 
+function iconBtn(color) {
+  return {
+    background:"transparent",border:`1px solid ${color}33`,borderRadius:4,
+    width:24,height:24,color:color,fontSize:12,cursor:"pointer",
+    display:"flex",alignItems:"center",justifyContent:"center",
+    fontFamily:"'JetBrains Mono',monospace",padding:0
+  };
+}
+
 function StrategyDiagram() {
   return (
-    <div style={{...styles.card, padding:16, marginTop:0, marginBottom:0}}>
+    <div style={{...styles.card, padding:16}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
         <span style={styles.cardTitle}>Setup Diagram</span>
-        <span style={{fontSize:10,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>BOS · CHOCH · OTE · Demand</span>
+        <span style={{fontSize:10,color:"#444",fontFamily:"'JetBrains Mono',monospace"}}>HIGH · OTE · DEMAND · TP</span>
       </div>
-      <svg viewBox="0 0 800 220" style={{width:"100%",height:"auto",display:"block"}} preserveAspectRatio="none">
+      <svg viewBox="0 0 800 280" style={{width:"100%",height:"auto",display:"block"}} preserveAspectRatio="xMidYMid meet">
         <defs>
-          <linearGradient id="oteGrad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={GOLD} stopOpacity="0.25"/>
-            <stop offset="100%" stopColor={GOLD} stopOpacity="0.05"/>
+          <linearGradient id="oteGrad2" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={GOLD} stopOpacity="0.22"/>
+            <stop offset="100%" stopColor={GOLD} stopOpacity="0.04"/>
           </linearGradient>
-          <linearGradient id="demandGrad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={G} stopOpacity="0.25"/>
-            <stop offset="100%" stopColor={G} stopOpacity="0.05"/>
+          <linearGradient id="demandGrad2" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={G} stopOpacity="0.22"/>
+            <stop offset="100%" stopColor={G} stopOpacity="0.04"/>
           </linearGradient>
         </defs>
-        {/* zones */}
-        <rect x="240" y="60" width="200" height="40" fill="url(#oteGrad)" stroke={GOLD} strokeWidth="0.5" strokeDasharray="3 3"/>
-        <rect x="380" y="140" width="180" height="38" fill="url(#demandGrad)" stroke={G} strokeWidth="0.5" strokeDasharray="3 3"/>
-        {/* price path */}
-        <path d="M 20 180 L 80 130 L 130 150 L 180 90 L 230 110 L 290 70 L 340 95 L 400 155 L 460 165 L 520 145 L 580 110 L 640 80 L 720 40" fill="none" stroke="#c8c8dc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        {/* markers */}
-        <circle cx="180" cy="90" r="4" fill={GOLD}/>
-        <text x="180" y="78" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">BOS</text>
-        <circle cx="400" cy="155" r="4" fill={R}/>
-        <text x="400" y="200" fill={R} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">CHOCH (demand)</text>
-        <circle cx="460" cy="165" r="4" fill={G}/>
-        <text x="460" y="200" fill={G} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">ENTRY</text>
-        <line x1="540" y1="130" x2="720" y2="40" stroke={G} strokeWidth="0.5" strokeDasharray="2 4"/>
-        <text x="720" y="32" fill={G} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="end">TP · 1:3</text>
-        <text x="20" y="172" fill={R} fontSize="9" fontFamily="JetBrains Mono, monospace">SL</text>
-        <text x="340" y="60" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace">OTE 0.618 / 0.79</text>
-        <text x="470" y="138" fill={G} fontSize="9" fontFamily="JetBrains Mono, monospace">Demand Zone</text>
+
+        {/* HIGH line */}
+        <line x1="20" y1="50" x2="780" y2="50" stroke={GOLD} strokeWidth="0.6" strokeDasharray="4 4" opacity="0.6"/>
+        <text x="24" y="44" fill={GOLD} fontSize="10" fontFamily="JetBrains Mono, monospace">HIGH</text>
+
+        {/* TP line */}
+        <line x1="20" y1="30" x2="780" y2="30" stroke={G} strokeWidth="0.6" strokeDasharray="4 4" opacity="0.8"/>
+        <text x="776" y="24" fill={G} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="end">TP · 1:3</text>
+
+        {/* Demand zone */}
+        <rect x="20" y="105" width="760" height="35" fill="url(#demandGrad2)" stroke={G} strokeWidth="0.5" strokeDasharray="3 3"/>
+        <text x="28" y="126" fill={G} fontSize="10" fontFamily="JetBrains Mono, monospace" fontWeight="700">DEMAND ZONE · ENTRY</text>
+
+        {/* OTE / Premium zone */}
+        <rect x="20" y="160" width="760" height="40" fill="url(#oteGrad2)" stroke={GOLD} strokeWidth="0.5" strokeDasharray="3 3"/>
+        <text x="28" y="183" fill={GOLD} fontSize="10" fontFamily="JetBrains Mono, monospace" fontWeight="700">OTE · PREMIUM ZONE (0.618 / 0.79)</text>
+
+        {/* SL line */}
+        <line x1="20" y1="225" x2="780" y2="225" stroke={R} strokeWidth="0.6" strokeDasharray="4 4" opacity="0.8"/>
+        <text x="776" y="220" fill={R} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="end">SL</text>
+
+        {/* LOW line */}
+        <line x1="20" y1="250" x2="780" y2="250" stroke="#777" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5"/>
+        <text x="24" y="266" fill="#777" fontSize="10" fontFamily="JetBrains Mono, monospace">LOW</text>
+
+        {/* Price path: start near high → drop through demand to OTE → bounce up into demand → break up to TP */}
+        <path d="M 40 80 L 90 60 L 140 90 L 190 130 L 240 175 L 290 195 L 340 165 L 390 130 L 440 115 L 490 90 L 550 65 L 620 45 L 700 35"
+              fill="none" stroke="#c8c8dc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+
+        {/* Markers */}
+        <circle cx="90" cy="60" r="4" fill={GOLD}/>
+        <text x="90" y="74" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">High mark</text>
+
+        <circle cx="290" cy="195" r="4" fill={GOLD}/>
+        <text x="290" y="216" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">OTE touch</text>
+
+        <circle cx="440" cy="115" r="5" fill={G} stroke="#0f0f1a" strokeWidth="1"/>
+        <text x="440" y="100" fill={G} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="middle" fontWeight="700">ENTRY · CHOCH</text>
+
+        {/* Arrow to TP */}
+        <line x1="500" y1="85" x2="700" y2="35" stroke={G} strokeWidth="0.8" strokeDasharray="3 4" opacity="0.6"/>
+        <polygon points="700,35 692,30 692,40" fill={G}/>
       </svg>
     </div>
   );
