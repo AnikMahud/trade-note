@@ -922,7 +922,7 @@ function TradingJournal() {
         )}
 
         {view==="target" && (
-          <div style={S.page}><TargetPage requireUnlock={requireUnlock} unlocked={unlocked} showToast={showToast} /></div>
+          <div style={S.page}><TargetPage requireUnlock={requireUnlock} unlocked={unlocked} showToast={showToast} ledger={ledger} trades={trades} /></div>
         )}
       </div>
 
@@ -1547,7 +1547,7 @@ function money(n) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function TargetPage({ requireUnlock, showToast }) {
+function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   const rows = useMemo(() => buildTargetRows(), []);
   const [doneMap, setDoneMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -1590,7 +1590,17 @@ function TargetPage({ requireUnlock, showToast }) {
 
   const completed = Object.values(doneMap).filter(t => t.done).length;
   const lastDone = Math.max(0, ...rows.filter(r => doneMap[r.step]?.done).map(r => r.step));
-  const currentBalance = lastDone ? rows[lastDone-1].balance : START_CAPITAL;
+
+  const _sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+  const equity = _sum(ledger.filter(e=>e.type==="Starting"),e=>e.amount||0)
+               + _sum(ledger.filter(e=>e.type==="Deposit"),e=>e.amount||0)
+               - _sum(ledger.filter(e=>e.type==="Withdrawal"),e=>e.amount||0)
+               + _sum(ledger.filter(e=>e.type==="Adjustment"),e=>e.amount||0)
+               + _sum(trades, t=>parseFloat(t.pnl)||0);
+
+  const nextStep = lastDone < TARGET_COUNT ? lastDone + 1 : null;
+  const nextTargetBalance = nextStep ? rows[nextStep - 1].balance : null;
+  const dueTarget = nextTargetBalance !== null ? equity - nextTargetBalance : null;
 
   return (
     <div>
@@ -1606,7 +1616,15 @@ function TargetPage({ requireUnlock, showToast }) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",gap:10,marginBottom:16}}>
         <StatCard label="Starting" value={money(START_CAPITAL)} sub="Capital base"/>
         <StatCard label="Progress" value={`${completed} / ${TARGET_COUNT}`} sub={`${Math.round(completed/TARGET_COUNT*100)}% complete`} color={GOLD}/>
-        <StatCard label="Current Balance" value={money(currentBalance)} sub={lastDone?`At step ${lastDone}`:"Not started"} color={G}/>
+        <StatCard label="Current Balance" value={money(equity)} sub="Live account" color={G}/>
+        {nextTargetBalance !== null && (
+          <StatCard
+            label="Due Target"
+            value={(dueTarget >= 0 ? "+$" : "-$") + Math.abs(dueTarget).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+            sub={`Step ${nextStep} · target $${money(nextTargetBalance)}`}
+            color={dueTarget >= 0 ? G : R}
+          />
+        )}
         <StatCard label="Final Target" value={money(rows[rows.length-1].balance)} sub="At step 50"/>
       </div>
 
