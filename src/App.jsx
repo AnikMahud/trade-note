@@ -1716,7 +1716,8 @@ function PortfolioPage({ requireUnlock, showToast }) {
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [editH, setEditH] = useState(null); // holding currently being edited
+  const [editH, setEditH] = useState(null);
+  const [closeModal, setCloseModal] = useState(null); // { id, symbol, sellPrice, sellDate }
 
   // Get margin % from a holding — handles old format where leverage was a multiplier
   const getLevPct = (h) => {
@@ -1738,7 +1739,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
   };
 
   const loadQuotes = (list) => {
-    const syms = [...new Set(list.map(h => h.symbol))];
+    const syms = [...new Set(list.filter(h => !h.status || h.status === "open").map(h => h.symbol))];
     if (!syms.length) return;
     setRefreshing(true);
     Promise.allSettled(syms.map(s => fetchQuote(s))).then(res => {
@@ -1771,7 +1772,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
   };
 
   const doRefresh = async () => {
-    const syms = [...new Set(holdings.map(h => h.symbol))];
+    const syms = [...new Set(holdings.filter(h => !h.status || h.status === "open").map(h => h.symbol))];
     if (!syms.length) return;
     setRefreshing(true);
     try {
@@ -1799,7 +1800,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
     const h = {
       id: Date.now(), symbol: sym, name: form.name || sym,
       buyDate: form.buyDate, buyPrice: parseFloat(form.buyPrice),
-      shares: parseFloat(form.shares), levPct: lp,
+      shares: parseFloat(form.shares), levPct: lp, status: "open",
     };
     persist([...holdings, h]);
     if (!quotes[sym]) {
@@ -1829,14 +1830,24 @@ function PortfolioPage({ requireUnlock, showToast }) {
     showToast("Removed ✓", "ok");
   });
 
+  const closePosition = () => {
+    if (!closeModal?.sellPrice) { showToast("Enter a sell price", "err"); return; }
+    persist(holdings.map(h => h.id === closeModal.id ? {
+      ...h, status: "closed",
+      sellPrice: parseFloat(closeModal.sellPrice),
+      sellDate: closeModal.sellDate,
+    } : h));
+    setCloseModal(null);
+    showToast("Position closed ✓", "ok");
+  };
+
   const totals = useMemo(() => {
     let inv = 0, gl = 0;
-    holdings.forEach(h => {
+    // Only open positions count toward live totals
+    holdings.filter(h => !h.status || h.status === "open").forEach(h => {
       const q = quotes[h.symbol];
       const lp = getLevPct(h);
-      // Amount invested = only the margin portion (levPct% of full position)
       inv += h.buyPrice * h.shares * (lp / 100);
-      // Gain/Loss = on the FULL position (leverage amplifies the return)
       if (q?.price != null) gl += (q.price - h.buyPrice) * h.shares;
     });
     const cur = inv + gl;
@@ -1880,6 +1891,9 @@ function PortfolioPage({ requireUnlock, showToast }) {
     );
   };
 
+  const openHoldings = holdings.filter(h => !h.status || h.status === "open");
+  const closedHoldings = holdings.filter(h => h.status === "closed");
+
   const lookupSym = form.symbol.trim().toUpperCase();
   const lookupQ = quotes[lookupSym];
   const formLevPct = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
@@ -1905,7 +1919,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
             { label: "Total Invested", value: fmtUSD(totals.inv), color: "#eee0bf", sub: "margin capital" },
             { label: "Current Value", value: fmtUSD(totals.cur), color: pnlColor(totals.gl) },
             { label: "Total Gain / Loss", value: fmt$(totals.gl), color: pnlColor(totals.gl) },
-            { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${holdings.length} holding${holdings.length !== 1 ? "s" : ""}` },
+            { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${openHoldings.length} open · ${closedHoldings.length} closed` },
           ].map(k => (
             <div key={k.label} style={styles.kpiCard}>
               <div style={styles.kpiLabel}>{k.label}</div>
@@ -2007,7 +2021,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
         </div>
       )}
 
-      {holdings.length === 0 ? (
+      {openHoldings.length === 0 && closedHoldings.length === 0 ? (
         <div style={styles.empty}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>📈</div>
           <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 20, color: "#eee0bf", marginBottom: 8 }}>No holdings yet</div>
@@ -2015,74 +2029,183 @@ function PortfolioPage({ requireUnlock, showToast }) {
           <button style={styles.primaryBtn} onClick={() => requireUnlock(() => setShowForm(true))}>Add First Holding</button>
         </div>
       ) : (
-        <div style={styles.tableWrap}>
-          <table style={{ ...styles.table, minWidth: 1160 }}>
-            <thead>
-              <tr>
-                {["Symbol","Company","Buy Date","Buy Price","Shares","Lev","Invested","Current Price","52W High","52W Low","Current Value","Gain/Loss $","Gain/Loss %",""].map(h => (
-                  <th key={h} style={styles.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {holdings.map(h => {
-                const q = quotes[h.symbol] || {};
-                const hasPx = q.price != null;
-                const lp = getLevPct(h);
-                const levMult = lp < 100 ? (100 / lp) : 1;
-                const amt = h.buyPrice * h.shares * (lp / 100); // margin = invested capital
-                const gl = hasPx ? (q.price - h.buyPrice) * h.shares : 0; // gain on full position
-                const curVal = amt + (hasPx ? gl : 0);
-                const glPct = amt > 0 ? (gl / amt) * 100 : 0;
-                const c = pnlColor(gl);
-                return (
-                  <tr key={h.id} style={styles.tr}
-                    onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: GOLD }}>{h.symbol}</td>
-                    <td style={{ ...styles.td, color: "#cec2a3", fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
-                    <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.buyDate}</td>
-                    <td style={{ ...styles.td, ...styles.tdMono }}>${h.buyPrice.toFixed(2)}</td>
-                    <td style={{ ...styles.td, ...styles.tdMono }}>{h.shares.toLocaleString()}</td>
-                    <td style={{ ...styles.td, textAlign: "center" }}>
-                      <span style={{
-                        display: "inline-block", padding: "2px 7px", borderRadius: 4,
-                        fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
-                        background: levMult > 1 ? "rgba(198,164,76,0.15)" : "rgba(90,107,136,0.12)",
-                        color: levMult > 1 ? GOLD : "#5a6b88",
-                        border: `1px solid ${levMult > 1 ? GOLD + "55" : "#2a3a55"}`
-                      }}>{levMult > 1 ? `${levMult.toFixed(0)}×` : "1×"}</span>
-                    </td>
-                    <td style={{ ...styles.td, ...styles.tdMono, color: "#9caac4" }}>{fmtUSD(amt)}</td>
-                    <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#4a5a78", fontWeight: 700 }}>
-                      {hasPx ? `$${q.price.toFixed(2)}` : <span style={{ fontSize: 10, color: "#3a4a62" }}>loading…</span>}
-                    </td>
-                    <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.high52w != null ? G : "#4a5a78" }}>
-                      {hasPx && q.high52w != null ? `$${q.high52w.toFixed(2)}` : "—"}
-                    </td>
-                    <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.low52w != null ? R : "#4a5a78" }}>
-                      {hasPx && q.low52w != null ? `$${q.low52w.toFixed(2)}` : "—"}
-                    </td>
-                    <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: hasPx ? "#eee0bf" : "#4a5a78" }}>
-                      {hasPx ? fmtUSD(curVal) : "—"}
-                    </td>
-                    <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
-                      {hasPx ? fmt$(gl) : "—"}
-                    </td>
-                    <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
-                      {hasPx ? fmtN(glPct) + "%" : "—"}
-                    </td>
-                    <td style={{ ...styles.td, textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                        <button title="Edit" onClick={() => requireUnlock(() => setEditH({ ...h, levPct: String(getLevPct(h)), buyPrice: String(h.buyPrice), shares: String(h.shares) }))} style={iconBtn(GOLD)}>✎</button>
-                        <button title="Remove" onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <>
+          {openHoldings.length > 0 && (
+            <>
+              <div style={{ ...styles.cardHeader, marginBottom: 8 }}>
+                <span style={styles.cardTitle}>Open Positions</span>
+                <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>{openHoldings.length} active</span>
+              </div>
+              <div style={styles.tableWrap}>
+                <table style={{ ...styles.table, minWidth: 1160 }}>
+                  <thead>
+                    <tr>
+                      {["Symbol","Company","Buy Date","Buy Price","Shares","Lev","Invested","Current Price","52W High","52W Low","Current Value","Gain/Loss $","Gain/Loss %",""].map(h => (
+                        <th key={h} style={styles.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openHoldings.map(h => {
+                      const q = quotes[h.symbol] || {};
+                      const hasPx = q.price != null;
+                      const lp = getLevPct(h);
+                      const levMult = lp < 100 ? (100 / lp) : 1;
+                      const amt = h.buyPrice * h.shares * (lp / 100);
+                      const gl = hasPx ? (q.price - h.buyPrice) * h.shares : 0;
+                      const curVal = amt + (hasPx ? gl : 0);
+                      const glPct = amt > 0 ? (gl / amt) * 100 : 0;
+                      const c = pnlColor(gl);
+                      return (
+                        <tr key={h.id} style={styles.tr}
+                          onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: GOLD }}>{h.symbol}</td>
+                          <td style={{ ...styles.td, color: "#cec2a3", fontSize: 11, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.buyDate}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono }}>${h.buyPrice.toFixed(2)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono }}>{h.shares.toLocaleString()}</td>
+                          <td style={{ ...styles.td, textAlign: "center" }}>
+                            <span style={{
+                              display: "inline-block", padding: "2px 7px", borderRadius: 4,
+                              fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
+                              background: levMult > 1 ? "rgba(198,164,76,0.15)" : "rgba(90,107,136,0.12)",
+                              color: levMult > 1 ? GOLD : "#5a6b88",
+                              border: `1px solid ${levMult > 1 ? GOLD + "55" : "#2a3a55"}`
+                            }}>{levMult > 1 ? `${levMult.toFixed(0)}×` : "1×"}</span>
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#9caac4" }}>{fmtUSD(amt)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#4a5a78", fontWeight: 700 }}>
+                            {hasPx ? `$${q.price.toFixed(2)}` : <span style={{ fontSize: 10, color: "#3a4a62" }}>loading…</span>}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.high52w != null ? G : "#4a5a78" }}>
+                            {hasPx && q.high52w != null ? `$${q.high52w.toFixed(2)}` : "—"}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.low52w != null ? R : "#4a5a78" }}>
+                            {hasPx && q.low52w != null ? `$${q.low52w.toFixed(2)}` : "—"}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: hasPx ? "#eee0bf" : "#4a5a78" }}>
+                            {hasPx ? fmtUSD(curVal) : "—"}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
+                            {hasPx ? fmt$(gl) : "—"}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
+                            {hasPx ? fmtN(glPct) + "%" : "—"}
+                          </td>
+                          <td style={{ ...styles.td, textAlign: "right" }}>
+                            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                              <button title="Close / Sell position" onClick={() => requireUnlock(() => setCloseModal({ id: h.id, symbol: h.symbol, sellPrice: "", sellDate: new Date().toISOString().slice(0, 10) }))} style={{ ...iconBtn(G), fontSize: 10, padding: "3px 6px", width: "auto" }}>Sell</button>
+                              <button title="Edit" onClick={() => requireUnlock(() => setEditH({ ...h, levPct: String(getLevPct(h)), buyPrice: String(h.buyPrice), shares: String(h.shares) }))} style={iconBtn(GOLD)}>✎</button>
+                              <button title="Remove" onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {closedHoldings.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ ...styles.cardHeader, marginBottom: 8 }}>
+                <span style={styles.cardTitle}>Closed Positions</span>
+                <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>{closedHoldings.length} trade{closedHoldings.length !== 1 ? "s" : ""} · history</span>
+              </div>
+              <div style={styles.tableWrap}>
+                <table style={{ ...styles.table, minWidth: 1060 }}>
+                  <thead>
+                    <tr>
+                      {["Symbol","Company","Buy Date","Buy Price","Sell Date","Sell Price","Shares","Lev","Invested","Realized Value","Gain/Loss $","Gain/Loss %",""].map(h => (
+                        <th key={h} style={styles.th}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {closedHoldings.map(h => {
+                      const lp = getLevPct(h);
+                      const levMult = lp < 100 ? (100 / lp) : 1;
+                      const amt = h.buyPrice * h.shares * (lp / 100);
+                      const gl = (h.sellPrice - h.buyPrice) * h.shares;
+                      const realizedVal = amt + gl;
+                      const glPct = amt > 0 ? (gl / amt) * 100 : 0;
+                      const c = pnlColor(gl);
+                      return (
+                        <tr key={h.id} style={{ ...styles.tr, opacity: 0.8 }}
+                          onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: "#9caac4" }}>
+                            {h.symbol}
+                            <span style={{ marginLeft: 6, fontSize: 9, color: "#4a5a78", fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase" }}>closed</span>
+                          </td>
+                          <td style={{ ...styles.td, color: "#7e8aa4", fontSize: 11, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#5a6b88" }}>{h.buyDate}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>${h.buyPrice.toFixed(2)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.sellDate || "—"}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#eee0bf", fontWeight: 700 }}>${h.sellPrice.toFixed(2)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.shares.toLocaleString()}</td>
+                          <td style={{ ...styles.td, textAlign: "center" }}>
+                            <span style={{
+                              display: "inline-block", padding: "2px 7px", borderRadius: 4,
+                              fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
+                              background: levMult > 1 ? "rgba(198,164,76,0.10)" : "rgba(90,107,136,0.08)",
+                              color: levMult > 1 ? GOLD + "aa" : "#4a5a68",
+                              border: `1px solid ${levMult > 1 ? GOLD + "33" : "#1a2a3a"}`
+                            }}>{levMult > 1 ? `${levMult.toFixed(0)}×` : "1×"}</span>
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{fmtUSD(amt)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: "#eee0bf" }}>{fmtUSD(realizedVal)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: c }}>{fmt$(gl)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: c }}>{fmtN(glPct)}%</td>
+                          <td style={{ ...styles.td, textAlign: "right" }}>
+                            <button title="Remove" onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Close / Sell Modal */}
+      {closeModal && (
+        <div onClick={() => setCloseModal(null)} style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(8,8,16,0.88)", backdropFilter: "blur(6px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 20, fontFamily: "'Manrope',sans-serif"
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#121e34", border: `1px solid ${G}44`, borderRadius: 14,
+            padding: 28, width: "100%", maxWidth: 380,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6)"
+          }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", fontWeight: 500, fontSize: 22, color: "#eee0bf", marginBottom: 2 }}>Close Position</div>
+            <div style={{ fontSize: 10, color: G, fontFamily: "'JetBrains Mono',monospace", letterSpacing: 3, textTransform: "uppercase", marginBottom: 20 }}>{closeModal.symbol} · Record your sell</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Field label="Sell Date">
+                <input type="date" style={styles.input} value={closeModal.sellDate}
+                  onChange={e => setCloseModal(p => ({ ...p, sellDate: e.target.value }))}/>
+              </Field>
+              <Field label="Sell Price ($) *">
+                <input type="number" placeholder="0.00" autoFocus style={{ ...styles.input, fontSize: 20, color: G, fontWeight: 700 }}
+                  value={closeModal.sellPrice}
+                  onChange={e => setCloseModal(p => ({ ...p, sellPrice: e.target.value }))}
+                  onKeyDown={e => { if (e.key === "Enter") closePosition(); }}/>
+              </Field>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button onClick={closePosition} style={{ ...styles.primaryBtn, background: G, flex: 2 }}>Confirm Sell</button>
+              <button onClick={() => setCloseModal(null)} style={{ ...styles.ghostBtn, flex: 1 }}>Cancel</button>
+            </div>
+          </div>
         </div>
       )}
 
