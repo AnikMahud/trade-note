@@ -3,7 +3,30 @@ export default async function handler(req, res) {
   if (!symbol) return res.status(400).json({ error: "symbol required" });
 
   const sym = symbol.toUpperCase().trim();
+  const key = process.env.TWELVE_DATA_KEY;
 
+  // Primary: Twelve Data — real-time, matches TradingView prices
+  if (key) {
+    try {
+      const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(sym)}&apikey=${key}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Twelve Data HTTP ${r.status}`);
+      const d = await r.json();
+      if (d.status === "error" || d.code) throw new Error(d.message || "symbol not found");
+      return res.status(200).json({
+        symbol: d.symbol || sym,
+        name: d.name || sym,
+        price: parseFloat(d.close) || null,
+        high52w: parseFloat(d.fifty_two_week?.high) || null,
+        low52w: parseFloat(d.fifty_two_week?.low) || null,
+      });
+    } catch (e) {
+      console.warn("Twelve Data failed:", e.message);
+      // fall through to Yahoo Finance fallback
+    }
+  }
+
+  // Fallback: Yahoo Finance (15-min delayed)
   const headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
@@ -12,7 +35,6 @@ export default async function handler(req, res) {
     "Cache-Control": "no-cache",
   };
 
-  // Primary: Yahoo Finance v7 quote
   try {
     const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(sym)}`;
     const r = await fetch(url, { headers });
@@ -28,10 +50,9 @@ export default async function handler(req, res) {
       low52w: q.fiftyTwoWeekLow ?? null,
     });
   } catch (e) {
-    console.warn("quote v7 failed:", e.message);
+    console.warn("Yahoo v7 failed:", e.message);
   }
 
-  // Fallback: Yahoo Finance v8 chart
   try {
     const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`;
     const r = await fetch(url, { headers });
@@ -47,7 +68,7 @@ export default async function handler(req, res) {
       low52w: meta.fiftyTwoWeekLow ?? null,
     });
   } catch (e) {
-    console.error("quote fallback failed:", e.message);
-    return res.status(500).json({ error: `Could not fetch quote for '${sym}': ${e.message}` });
+    console.error("all quote sources failed:", e.message);
+    return res.status(500).json({ error: `Could not fetch quote for '${sym}'` });
   }
 }
