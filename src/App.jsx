@@ -926,7 +926,7 @@ function TradingJournal() {
         )}
 
         {view==="portfolio" && (
-          <div style={S.page}><PortfolioPage requireUnlock={requireUnlock} showToast={showToast}/></div>
+          <div style={S.page}><PortfolioPage requireUnlock={requireUnlock} showToast={showToast} ledger={ledger} trades={trades}/></div>
         )}
       </div>
 
@@ -1690,7 +1690,7 @@ function StatCard({ label, value, sub, color }) {
 const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
 
-function PortfolioPage({ requireUnlock, showToast }) {
+function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   const PKEY = "tn-portfolio-v1";
   // Leverage presets: label shown to user → margin % stored internally
   // e.g. 10× leverage means you put up 10% of the buy price as margin
@@ -1894,6 +1894,15 @@ function PortfolioPage({ requireUnlock, showToast }) {
   const openHoldings = holdings.filter(h => !h.status || h.status === "open");
   const closedHoldings = holdings.filter(h => h.status === "closed");
 
+  const accountEquity = useMemo(() => {
+    const s = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+    return s(ledger.filter(e => e.type === "Starting"), e => e.amount || 0)
+         + s(ledger.filter(e => e.type === "Deposit"), e => e.amount || 0)
+         - s(ledger.filter(e => e.type === "Withdrawal"), e => e.amount || 0)
+         + s(ledger.filter(e => e.type === "Adjustment"), e => e.amount || 0)
+         + s(trades, t => parseFloat(t.pnl) || 0);
+  }, [ledger, trades]);
+
   const lookupSym = form.symbol.trim().toUpperCase();
   const lookupQ = quotes[lookupSym];
   const formLevPct = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
@@ -1910,6 +1919,18 @@ function PortfolioPage({ requireUnlock, showToast }) {
           <div style={{ width: 40, height: 1, background: GOLD, opacity: 0.5 }} />
           <span style={{ fontSize: 10, color: GOLD, fontFamily: "'JetBrains Mono',monospace", letterSpacing: 4, textTransform: "uppercase" }}>Holdings Tracker</span>
           <div style={{ width: 40, height: 1, background: GOLD, opacity: 0.5 }} />
+        </div>
+      </div>
+
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "12px 18px", marginBottom: 14, borderRadius: 10,
+        background: "linear-gradient(135deg, rgba(198,164,76,0.10), rgba(198,164,76,0.02))",
+        border: `1px solid ${GOLD}33`
+      }}>
+        <div style={{ fontFamily: "'Cinzel',serif", fontSize: 9, letterSpacing: 3, color: "#7e8aa4", textTransform: "uppercase" }}>Account Equity</div>
+        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: 22, color: GOLD }}>
+          ${accountEquity.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
       </div>
 
