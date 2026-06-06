@@ -1692,11 +1692,12 @@ const tgTd = {padding:"11px 14px",fontSize:12};
 
 function PortfolioPage({ requireUnlock, showToast }) {
   const PKEY = "tn-portfolio-v1";
+  const LEV_PRESETS = ["1", "2", "3", "5", "10"];
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch { return []; }
   });
   const [quotes, setQuotes] = useState({});
-  const [form, setForm] = useState({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "" });
+  const [form, setForm] = useState({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "", leverage: "1" });
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -1772,6 +1773,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
     if (!sym || !form.buyPrice || !form.shares) {
       showToast("Symbol, buy price, and shares are required", "err"); return;
     }
+    const lev = Math.max(1, parseFloat(form.leverage) || 1);
     const h = {
       id: Date.now(),
       symbol: sym,
@@ -1779,6 +1781,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
       buyDate: form.buyDate,
       buyPrice: parseFloat(form.buyPrice),
       shares: parseFloat(form.shares),
+      leverage: lev,
     };
     persist([...holdings, h]);
     if (!quotes[sym]) {
@@ -1786,7 +1789,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
         setQuotes(p => ({ ...p, [sym]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))
       ).catch(() => {});
     }
-    setForm({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "" });
+    setForm({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "", leverage: "1" });
     setShowForm(false);
     showToast("Holding added ✓", "ok");
   };
@@ -1798,13 +1801,14 @@ function PortfolioPage({ requireUnlock, showToast }) {
   });
 
   const totals = useMemo(() => {
-    let inv = 0, cur = 0;
+    let inv = 0, gl = 0;
     holdings.forEach(h => {
       const q = quotes[h.symbol];
+      const lev = h.leverage || 1;
       inv += h.buyPrice * h.shares;
-      cur += (q?.price != null ? q.price : h.buyPrice) * h.shares;
+      if (q?.price != null) gl += (q.price - h.buyPrice) * h.shares * lev;
     });
-    const gl = cur - inv;
+    const cur = inv + gl;
     const glPct = inv > 0 ? (gl / inv) * 100 : 0;
     return { inv, cur, gl, glPct };
   }, [holdings, quotes]);
@@ -1812,6 +1816,9 @@ function PortfolioPage({ requireUnlock, showToast }) {
   const fmtUSD = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const lookupSym = form.symbol.trim().toUpperCase();
   const lookupQ = quotes[lookupSym];
+  const formLev = Math.max(1, parseFloat(form.leverage) || 1);
+  const formAmt = form.buyPrice && form.shares && !isNaN(parseFloat(form.buyPrice)) && !isNaN(parseFloat(form.shares))
+    ? parseFloat(form.buyPrice) * parseFloat(form.shares) : null;
 
   return (
     <div>
@@ -1830,7 +1837,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
         <div style={styles.kpiRow}>
           {[
             { label: "Total Invested", value: fmtUSD(totals.inv), color: "#eee0bf" },
-            { label: "Current Value", value: fmtUSD(totals.cur), color: pnlColor(totals.cur - totals.inv) },
+            { label: "Current Value", value: fmtUSD(totals.cur), color: pnlColor(totals.gl) },
             { label: "Total Gain / Loss", value: fmt$(totals.gl), color: pnlColor(totals.gl) },
             { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${holdings.length} holding${holdings.length !== 1 ? "s" : ""}` },
           ].map(k => (
@@ -1927,16 +1934,46 @@ function PortfolioPage({ requireUnlock, showToast }) {
                 onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
             </Field>
 
+            <Field label="Leverage">
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {LEV_PRESETS.map(lv => (
+                  <button key={lv} onClick={() => setForm(p => ({ ...p, leverage: lv }))} style={{
+                    ...styles.toggleBtn, flex: "0 0 auto", padding: "9px 10px",
+                    fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
+                    background: form.leverage === lv ? "rgba(198,164,76,0.15)" : "transparent",
+                    color: form.leverage === lv ? GOLD : "#5a6b88",
+                    borderColor: form.leverage === lv ? GOLD : "#26385a",
+                  }}>{lv}×</button>
+                ))}
+                <input
+                  type="number" min="1" placeholder="Custom"
+                  style={{ ...styles.input, flex: 1, minWidth: 70, fontSize: 13 }}
+                  value={LEV_PRESETS.includes(form.leverage) ? "" : form.leverage}
+                  onChange={e => setForm(p => ({ ...p, leverage: e.target.value }))}
+                />
+              </div>
+            </Field>
+
             <Field label="Amount Invested">
               <div style={{
                 ...styles.input, background: "#0a1220", border: "1px solid #1c2c45",
                 color: GOLD, fontWeight: 700, cursor: "default"
               }}>
-                {form.buyPrice && form.shares && !isNaN(parseFloat(form.buyPrice)) && !isNaN(parseFloat(form.shares))
-                  ? fmtUSD(parseFloat(form.buyPrice) * parseFloat(form.shares))
-                  : <span style={{ color: "#4a5a78" }}>—</span>}
+                {formAmt != null ? fmtUSD(formAmt) : <span style={{ color: "#4a5a78" }}>—</span>}
               </div>
             </Field>
+
+            {formAmt != null && formLev > 1 && (
+              <Field label="Leveraged Exposure">
+                <div style={{
+                  ...styles.input, background: "#0a1220", border: `1px solid ${GOLD}55`,
+                  color: GOLD, fontWeight: 700, cursor: "default", display: "flex", alignItems: "center", gap: 6
+                }}>
+                  {fmtUSD(formAmt * formLev)}
+                  <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace" }}>({formLev}×)</span>
+                </div>
+              </Field>
+            )}
           </div>
 
           {lookupSym && lookupQ && (
@@ -1975,10 +2012,10 @@ function PortfolioPage({ requireUnlock, showToast }) {
         </div>
       ) : (
         <div style={styles.tableWrap}>
-          <table style={{ ...styles.table, minWidth: 1100 }}>
+          <table style={{ ...styles.table, minWidth: 1150 }}>
             <thead>
               <tr>
-                {["Symbol","Company","Buy Date","Buy Price","Shares","Invested","Current Price","52W High","52W Low","Current Value","Gain/Loss $","Gain/Loss %",""].map(h => (
+                {["Symbol","Company","Buy Date","Buy Price","Shares","Lev","Invested","Current Price","52W High","52W Low","Current Value","Gain/Loss $","Gain/Loss %",""].map(h => (
                   <th key={h} style={styles.th}>{h}</th>
                 ))}
               </tr>
@@ -1987,9 +2024,10 @@ function PortfolioPage({ requireUnlock, showToast }) {
               {holdings.map(h => {
                 const q = quotes[h.symbol] || {};
                 const hasPx = q.price != null;
+                const lev = h.leverage || 1;
                 const amt = h.buyPrice * h.shares;
-                const curVal = hasPx ? q.price * h.shares : amt;
-                const gl = curVal - amt;
+                const gl = hasPx ? (q.price - h.buyPrice) * h.shares * lev : 0;
+                const curVal = amt + (hasPx ? gl : 0);
                 const glPct = (gl / amt) * 100;
                 const c = pnlColor(gl);
                 return (
@@ -2001,6 +2039,15 @@ function PortfolioPage({ requireUnlock, showToast }) {
                     <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.buyDate}</td>
                     <td style={{ ...styles.td, ...styles.tdMono }}>${h.buyPrice.toFixed(2)}</td>
                     <td style={{ ...styles.td, ...styles.tdMono }}>{h.shares.toLocaleString()}</td>
+                    <td style={{ ...styles.td, textAlign: "center" }}>
+                      <span style={{
+                        display: "inline-block", padding: "2px 7px", borderRadius: 4,
+                        fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
+                        background: lev > 1 ? "rgba(198,164,76,0.15)" : "rgba(90,107,136,0.12)",
+                        color: lev > 1 ? GOLD : "#5a6b88",
+                        border: `1px solid ${lev > 1 ? GOLD + "55" : "#2a3a55"}`
+                      }}>{lev}×</span>
+                    </td>
                     <td style={{ ...styles.td, ...styles.tdMono, color: "#9caac4" }}>{fmtUSD(amt)}</td>
                     <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#4a5a78", fontWeight: 700 }}>
                       {hasPx ? `$${q.price.toFixed(2)}` : <span style={{ fontSize: 10, color: "#3a4a62" }}>loading…</span>}
