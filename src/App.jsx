@@ -1692,15 +1692,38 @@ const tgTd = {padding:"11px 14px",fontSize:12};
 
 function PortfolioPage({ requireUnlock, showToast }) {
   const PKEY = "tn-portfolio-v1";
-  const LEV_PRESETS = ["1", "2", "3", "5", "10"];
+  // Leverage presets: label shown to user → margin % stored internally
+  // e.g. 10× leverage means you put up 10% of the buy price as margin
+  const LEV_PRESETS = [
+    { lbl: "1×",  pct: "100" },
+    { lbl: "2×",  pct: "50"  },
+    { lbl: "5×",  pct: "20"  },
+    { lbl: "10×", pct: "10"  },
+    { lbl: "20×", pct: "5"   },
+  ];
+
+  const blankForm = () => ({
+    symbol: "", name: "",
+    buyDate: new Date().toISOString().slice(0, 10),
+    buyPrice: "", shares: "", levPct: "100",
+  });
+
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch { return []; }
   });
   const [quotes, setQuotes] = useState({});
-  const [form, setForm] = useState({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "", leverage: "1" });
+  const [form, setForm] = useState(blankForm());
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [editH, setEditH] = useState(null); // holding currently being edited
+
+  // Get margin % from a holding — handles old format where leverage was a multiplier
+  const getLevPct = (h) => {
+    if (h.levPct != null) return Number(h.levPct);
+    if (h.leverage != null && h.leverage > 0) return 100 / h.leverage;
+    return 100;
+  };
 
   const persist = (next) => {
     setHoldings(next);
@@ -1734,13 +1757,13 @@ function PortfolioPage({ requireUnlock, showToast }) {
 
   useEffect(() => { loadQuotes(holdings); }, []);
 
-  const lookup = async () => {
-    const sym = form.symbol.trim().toUpperCase();
+  const lookup = async (target, setTarget) => {
+    const sym = target.symbol.trim().toUpperCase();
     if (!sym) return;
     setLookingUp(true);
     try {
       const q = await fetchQuote(sym);
-      setForm(p => ({ ...p, symbol: q.symbol, name: q.name }));
+      setTarget(p => ({ ...p, symbol: q.symbol, name: q.name }));
       setQuotes(p => ({ ...p, [q.symbol]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }));
     } catch (e) {
       showToast("Symbol not found: " + e.message, "err");
@@ -1757,8 +1780,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
         const next = { ...prev };
         res.forEach((r, i) => {
           if (r.status === "fulfilled") {
-            const q = r.value;
-            next[syms[i]] = { price: q.price, high52w: q.high52w, low52w: q.low52w };
+            const q = r.value; next[syms[i]] = { price: q.price, high52w: q.high52w, low52w: q.low52w };
           }
         });
         return next;
@@ -1773,25 +1795,32 @@ function PortfolioPage({ requireUnlock, showToast }) {
     if (!sym || !form.buyPrice || !form.shares) {
       showToast("Symbol, buy price, and shares are required", "err"); return;
     }
-    const lev = Math.max(1, parseFloat(form.leverage) || 1);
+    const lp = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
     const h = {
-      id: Date.now(),
-      symbol: sym,
-      name: form.name || sym,
-      buyDate: form.buyDate,
-      buyPrice: parseFloat(form.buyPrice),
-      shares: parseFloat(form.shares),
-      leverage: lev,
+      id: Date.now(), symbol: sym, name: form.name || sym,
+      buyDate: form.buyDate, buyPrice: parseFloat(form.buyPrice),
+      shares: parseFloat(form.shares), levPct: lp,
     };
     persist([...holdings, h]);
     if (!quotes[sym]) {
-      fetchQuote(sym).then(q =>
-        setQuotes(p => ({ ...p, [sym]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))
-      ).catch(() => {});
+      fetchQuote(sym).then(q => setQuotes(p => ({ ...p, [sym]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))).catch(() => {});
     }
-    setForm({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "", leverage: "1" });
+    setForm(blankForm());
     setShowForm(false);
     showToast("Holding added ✓", "ok");
+  };
+
+  const saveEdit = () => {
+    if (!editH.buyPrice || !editH.shares) { showToast("Buy price and shares are required", "err"); return; }
+    const lp = Math.min(100, Math.max(0.01, parseFloat(editH.levPct) || 100));
+    const updated = { ...editH, buyPrice: parseFloat(editH.buyPrice), shares: parseFloat(editH.shares), levPct: lp };
+    delete updated.leverage; // clear old field if present
+    persist(holdings.map(x => x.id === updated.id ? updated : x));
+    if (!quotes[updated.symbol]) {
+      fetchQuote(updated.symbol).then(q => setQuotes(p => ({ ...p, [updated.symbol]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))).catch(() => {});
+    }
+    setEditH(null);
+    showToast("Updated ✓", "ok");
   };
 
   const removeHolding = (id) => requireUnlock(() => {
@@ -1804,9 +1833,11 @@ function PortfolioPage({ requireUnlock, showToast }) {
     let inv = 0, gl = 0;
     holdings.forEach(h => {
       const q = quotes[h.symbol];
-      const lev = h.leverage || 1;
-      inv += h.buyPrice * h.shares;
-      if (q?.price != null) gl += (q.price - h.buyPrice) * h.shares * lev;
+      const lp = getLevPct(h);
+      // Amount invested = only the margin portion (levPct% of full position)
+      inv += h.buyPrice * h.shares * (lp / 100);
+      // Gain/Loss = on the FULL position (leverage amplifies the return)
+      if (q?.price != null) gl += (q.price - h.buyPrice) * h.shares;
     });
     const cur = inv + gl;
     const glPct = inv > 0 ? (gl / inv) * 100 : 0;
@@ -1814,11 +1845,46 @@ function PortfolioPage({ requireUnlock, showToast }) {
   }, [holdings, quotes]);
 
   const fmtUSD = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Shared leverage selector used in both Add form and Edit modal
+  const LevSelector = ({ levPct, onChange }) => {
+    const cur = String(levPct);
+    const isPreset = LEV_PRESETS.some(x => x.pct === cur);
+    return (
+      <div>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+          {LEV_PRESETS.map(({ lbl, pct }) => (
+            <button key={pct} onClick={() => onChange(pct)} style={{
+              ...styles.toggleBtn, flex: "0 0 auto", padding: "8px 10px",
+              fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
+              background: cur === pct ? "rgba(198,164,76,0.15)" : "transparent",
+              color: cur === pct ? GOLD : "#5a6b88",
+              borderColor: cur === pct ? GOLD : "#26385a",
+            }}>{lbl}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input type="number" min="0.01" max="100" placeholder="Custom %"
+            style={{ ...styles.input, flex: 1 }}
+            value={isPreset ? "" : levPct}
+            onChange={e => onChange(e.target.value)}
+          />
+          <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>% margin</span>
+        </div>
+        <div style={{ fontSize: 10, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", marginTop: 4 }}>
+          {parseFloat(levPct) < 100
+            ? `${parseFloat(levPct).toFixed(0)}% of buy price = ${(100 / parseFloat(levPct)).toFixed(1)}× leverage`
+            : "No leverage — full price invested"}
+        </div>
+      </div>
+    );
+  };
+
   const lookupSym = form.symbol.trim().toUpperCase();
   const lookupQ = quotes[lookupSym];
-  const formLev = Math.max(1, parseFloat(form.leverage) || 1);
-  const formAmt = form.buyPrice && form.shares && !isNaN(parseFloat(form.buyPrice)) && !isNaN(parseFloat(form.shares))
-    ? parseFloat(form.buyPrice) * parseFloat(form.shares) : null;
+  const formLevPct = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
+  const formFullPos = form.buyPrice && form.shares ? parseFloat(form.buyPrice) * parseFloat(form.shares) : null;
+  const formAmt = formFullPos != null ? formFullPos * (formLevPct / 100) : null;
 
   return (
     <div>
@@ -1836,7 +1902,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
       {holdings.length > 0 && (
         <div style={styles.kpiRow}>
           {[
-            { label: "Total Invested", value: fmtUSD(totals.inv), color: "#eee0bf" },
+            { label: "Total Invested", value: fmtUSD(totals.inv), color: "#eee0bf", sub: "margin capital" },
             { label: "Current Value", value: fmtUSD(totals.cur), color: pnlColor(totals.gl) },
             { label: "Total Gain / Loss", value: fmt$(totals.gl), color: pnlColor(totals.gl) },
             { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${holdings.length} holding${holdings.length !== 1 ? "s" : ""}` },
@@ -1851,27 +1917,19 @@ function PortfolioPage({ requireUnlock, showToast }) {
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-        <button onClick={() => {
-          if (showForm) { setShowForm(false); }
-          else { requireUnlock(() => setShowForm(true)); }
-        }} style={{
+        <button onClick={() => { if (showForm) setShowForm(false); else requireUnlock(() => setShowForm(true)); }} style={{
           background: showForm ? "rgba(198,164,76,0.15)" : "transparent",
           border: `1px solid ${showForm ? GOLD : GOLD + "66"}`,
           borderRadius: 6, padding: "8px 16px", color: GOLD, fontSize: 11, cursor: "pointer",
           fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600
-        }}>
-          {showForm ? "✕ Close" : "+ Add Holding"}
-        </button>
+        }}>{showForm ? "✕ Close" : "+ Add Holding"}</button>
         {holdings.length > 0 && (
           <button onClick={doRefresh} disabled={refreshing} style={{
             background: "transparent", border: "1px solid #26385a", borderRadius: 6,
             padding: "8px 16px", color: refreshing ? "#4a5a78" : "#9caac4", fontSize: 11,
             cursor: refreshing ? "wait" : "pointer",
-            fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600,
-            opacity: refreshing ? 0.6 : 1
-          }}>
-            {refreshing ? "Updating…" : "⟳ Refresh Prices"}
-          </button>
+            fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600, opacity: refreshing ? 0.6 : 1
+          }}>{refreshing ? "Updating…" : "⟳ Refresh Prices"}</button>
         )}
       </div>
 
@@ -1879,108 +1937,57 @@ function PortfolioPage({ requireUnlock, showToast }) {
         <div style={{ ...styles.card, marginBottom: 16, borderColor: GOLD + "44" }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>New Holding</span>
-            <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>
-              Type symbol → Lookup → fill details
-            </span>
+            <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>Type symbol → Lookup → fill details</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
             <Field label="Symbol *">
               <div style={{ display: "flex", gap: 6 }}>
-                <input
-                  placeholder="AAPL, TSLA…"
-                  style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
-                  value={form.symbol}
-                  onChange={e => setForm(p => ({ ...p, symbol: e.target.value.toUpperCase(), name: "" }))}
-                  onKeyDown={e => { if (e.key === "Enter") lookup(); }}
-                />
-                <button
-                  onClick={lookup}
-                  disabled={lookingUp || !form.symbol.trim()}
-                  style={{
-                    background: "transparent", border: `1px solid ${GOLD}66`, borderRadius: 6,
-                    padding: "0 12px", color: GOLD, fontSize: 11,
-                    cursor: lookingUp || !form.symbol.trim() ? "wait" : "pointer",
-                    fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase",
-                    fontWeight: 700, opacity: lookingUp || !form.symbol.trim() ? 0.4 : 1,
-                    whiteSpace: "nowrap", flexShrink: 0
-                  }}
-                >
-                  {lookingUp ? "…" : "Lookup"}
-                </button>
+                <input placeholder="AAPL, TSLA…" style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
+                  value={form.symbol} onChange={e => setForm(p => ({ ...p, symbol: e.target.value.toUpperCase(), name: "" }))}
+                  onKeyDown={e => { if (e.key === "Enter") lookup(form, setForm); }}/>
+                <button onClick={() => lookup(form, setForm)} disabled={lookingUp || !form.symbol.trim()} style={{
+                  background: "transparent", border: `1px solid ${GOLD}66`, borderRadius: 6,
+                  padding: "0 12px", color: GOLD, fontSize: 11,
+                  cursor: lookingUp || !form.symbol.trim() ? "wait" : "pointer",
+                  fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase",
+                  fontWeight: 700, opacity: lookingUp || !form.symbol.trim() ? 0.4 : 1, whiteSpace: "nowrap", flexShrink: 0
+                }}>{lookingUp ? "…" : "Lookup"}</button>
               </div>
             </Field>
-
             <Field label="Company Name">
-              <input
-                placeholder="Auto-filled on lookup"
-                style={{ ...styles.input, color: form.name ? "#eee0bf" : undefined }}
-                value={form.name}
-                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              />
+              <input placeholder="Auto-filled on lookup" style={{ ...styles.input, color: form.name ? "#eee0bf" : undefined }}
+                value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}/>
             </Field>
-
             <Field label="Buy Date">
-              <input type="date" style={styles.input} value={form.buyDate}
-                onChange={e => setForm(p => ({ ...p, buyDate: e.target.value }))} />
+              <input type="date" style={styles.input} value={form.buyDate} onChange={e => setForm(p => ({ ...p, buyDate: e.target.value }))}/>
             </Field>
-
             <Field label="Buy Price ($) *">
-              <input type="number" placeholder="0.00" style={styles.input} value={form.buyPrice}
-                onChange={e => setForm(p => ({ ...p, buyPrice: e.target.value }))} />
+              <input type="number" placeholder="0.00" style={styles.input} value={form.buyPrice} onChange={e => setForm(p => ({ ...p, buyPrice: e.target.value }))}/>
             </Field>
-
             <Field label="Shares *">
-              <input type="number" placeholder="0" style={styles.input} value={form.shares}
-                onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
+              <input type="number" placeholder="0" style={styles.input} value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))}/>
             </Field>
-
-            <Field label="Leverage">
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {LEV_PRESETS.map(lv => (
-                  <button key={lv} onClick={() => setForm(p => ({ ...p, leverage: lv }))} style={{
-                    ...styles.toggleBtn, flex: "0 0 auto", padding: "9px 10px",
-                    fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
-                    background: form.leverage === lv ? "rgba(198,164,76,0.15)" : "transparent",
-                    color: form.leverage === lv ? GOLD : "#5a6b88",
-                    borderColor: form.leverage === lv ? GOLD : "#26385a",
-                  }}>{lv}×</button>
-                ))}
-                <input
-                  type="number" min="1" placeholder="Custom"
-                  style={{ ...styles.input, flex: 1, minWidth: 70, fontSize: 13 }}
-                  value={LEV_PRESETS.includes(form.leverage) ? "" : form.leverage}
-                  onChange={e => setForm(p => ({ ...p, leverage: e.target.value }))}
-                />
-              </div>
-            </Field>
-
-            <Field label="Amount Invested">
-              <div style={{
-                ...styles.input, background: "#0a1220", border: "1px solid #1c2c45",
-                color: GOLD, fontWeight: 700, cursor: "default"
-              }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Leverage">
+                <LevSelector levPct={form.levPct} onChange={v => setForm(p => ({ ...p, levPct: v }))}/>
+              </Field>
+            </div>
+            <Field label="Amount Invested (Margin)">
+              <div style={{ ...styles.input, background: "#0a1220", border: "1px solid #1c2c45", color: GOLD, fontWeight: 700, cursor: "default" }}>
                 {formAmt != null ? fmtUSD(formAmt) : <span style={{ color: "#4a5a78" }}>—</span>}
               </div>
             </Field>
-
-            {formAmt != null && formLev > 1 && (
-              <Field label="Leveraged Exposure">
-                <div style={{
-                  ...styles.input, background: "#0a1220", border: `1px solid ${GOLD}55`,
-                  color: GOLD, fontWeight: 700, cursor: "default", display: "flex", alignItems: "center", gap: 6
-                }}>
-                  {fmtUSD(formAmt * formLev)}
-                  <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace" }}>({formLev}×)</span>
+            {formFullPos != null && formLevPct < 100 && (
+              <Field label="Full Position Size">
+                <div style={{ ...styles.input, background: "#0a1220", border: `1px solid ${GOLD}44`, color: "#9caac4", fontWeight: 600, cursor: "default" }}>
+                  {fmtUSD(formFullPos)}
+                  <span style={{ fontSize: 10, color: "#7e8aa4", marginLeft: 8, fontFamily: "'JetBrains Mono',monospace" }}>({(100 / formLevPct).toFixed(1)}× position)</span>
                 </div>
               </Field>
             )}
           </div>
-
           {lookupSym && lookupQ && (
-            <div style={{
-              marginTop: 12, padding: "10px 14px", background: "#0e1a2e",
-              borderRadius: 6, border: "1px solid #1c2c45", display: "flex", gap: 28, flexWrap: "wrap"
-            }}>
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#0e1a2e", borderRadius: 6, border: "1px solid #1c2c45", display: "flex", gap: 28, flexWrap: "wrap" }}>
               {[
                 { label: "Current Price", value: lookupQ.price, color: GOLD },
                 { label: "52W High", value: lookupQ.high52w, color: G },
@@ -1988,14 +1995,11 @@ function PortfolioPage({ requireUnlock, showToast }) {
               ].map(({ label, value, color }) => (
                 <div key={label}>
                   <span style={{ fontSize: 9, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", letterSpacing: 1, textTransform: "uppercase" }}>{label} · </span>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", color, fontWeight: 700, fontSize: 13 }}>
-                    {value != null ? `$${value.toFixed(2)}` : "—"}
-                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", color, fontWeight: 700, fontSize: 13 }}>{value != null ? `$${value.toFixed(2)}` : "—"}</span>
                 </div>
               ))}
             </div>
           )}
-
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={addHolding} style={styles.primaryBtn}>Save Holding</button>
             <button onClick={() => setShowForm(false)} style={styles.ghostBtn}>Cancel</button>
@@ -2012,7 +2016,7 @@ function PortfolioPage({ requireUnlock, showToast }) {
         </div>
       ) : (
         <div style={styles.tableWrap}>
-          <table style={{ ...styles.table, minWidth: 1150 }}>
+          <table style={{ ...styles.table, minWidth: 1160 }}>
             <thead>
               <tr>
                 {["Symbol","Company","Buy Date","Buy Price","Shares","Lev","Invested","Current Price","52W High","52W Low","Current Value","Gain/Loss $","Gain/Loss %",""].map(h => (
@@ -2024,11 +2028,12 @@ function PortfolioPage({ requireUnlock, showToast }) {
               {holdings.map(h => {
                 const q = quotes[h.symbol] || {};
                 const hasPx = q.price != null;
-                const lev = h.leverage || 1;
-                const amt = h.buyPrice * h.shares;
-                const gl = hasPx ? (q.price - h.buyPrice) * h.shares * lev : 0;
+                const lp = getLevPct(h);
+                const levMult = lp < 100 ? (100 / lp) : 1;
+                const amt = h.buyPrice * h.shares * (lp / 100); // margin = invested capital
+                const gl = hasPx ? (q.price - h.buyPrice) * h.shares : 0; // gain on full position
                 const curVal = amt + (hasPx ? gl : 0);
-                const glPct = (gl / amt) * 100;
+                const glPct = amt > 0 ? (gl / amt) * 100 : 0;
                 const c = pnlColor(gl);
                 return (
                   <tr key={h.id} style={styles.tr}
@@ -2043,10 +2048,10 @@ function PortfolioPage({ requireUnlock, showToast }) {
                       <span style={{
                         display: "inline-block", padding: "2px 7px", borderRadius: 4,
                         fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
-                        background: lev > 1 ? "rgba(198,164,76,0.15)" : "rgba(90,107,136,0.12)",
-                        color: lev > 1 ? GOLD : "#5a6b88",
-                        border: `1px solid ${lev > 1 ? GOLD + "55" : "#2a3a55"}`
-                      }}>{lev}×</span>
+                        background: levMult > 1 ? "rgba(198,164,76,0.15)" : "rgba(90,107,136,0.12)",
+                        color: levMult > 1 ? GOLD : "#5a6b88",
+                        border: `1px solid ${levMult > 1 ? GOLD + "55" : "#2a3a55"}`
+                      }}>{levMult > 1 ? `${levMult.toFixed(0)}×` : "1×"}</span>
                     </td>
                     <td style={{ ...styles.td, ...styles.tdMono, color: "#9caac4" }}>{fmtUSD(amt)}</td>
                     <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#4a5a78", fontWeight: 700 }}>
@@ -2068,13 +2073,82 @@ function PortfolioPage({ requireUnlock, showToast }) {
                       {hasPx ? fmtN(glPct) + "%" : "—"}
                     </td>
                     <td style={{ ...styles.td, textAlign: "right" }}>
-                      <button onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
+                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                        <button title="Edit" onClick={() => requireUnlock(() => setEditH({ ...h, levPct: String(getLevPct(h)), buyPrice: String(h.buyPrice), shares: String(h.shares) }))} style={iconBtn(GOLD)}>✎</button>
+                        <button title="Remove" onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editH && (
+        <div onClick={() => setEditH(null)} style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(8,8,16,0.88)", backdropFilter: "blur(6px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 20, fontFamily: "'Manrope',sans-serif"
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "#121e34", border: "1px solid #1c2c45", borderRadius: 14,
+            padding: 24, width: "100%", maxWidth: 580,
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6)", maxHeight: "90vh", overflowY: "auto"
+          }}>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", fontWeight: 500, fontSize: 22, color: "#eee0bf", marginBottom: 2 }}>Edit Holding</div>
+            <div style={{ fontSize: 10, color: GOLD, fontFamily: "'JetBrains Mono',monospace", letterSpacing: 3, textTransform: "uppercase", marginBottom: 18 }}>{editH.symbol}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+              <Field label="Symbol">
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
+                    value={editH.symbol}
+                    onChange={e => setEditH(p => ({ ...p, symbol: e.target.value.toUpperCase() }))}
+                    onKeyDown={e => { if (e.key === "Enter") lookup(editH, setEditH); }}/>
+                  <button onClick={() => lookup(editH, setEditH)} disabled={lookingUp} style={{
+                    background: "transparent", border: `1px solid ${GOLD}66`, borderRadius: 6,
+                    padding: "0 10px", color: GOLD, fontSize: 11, cursor: lookingUp ? "wait" : "pointer",
+                    fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase", fontWeight: 700, flexShrink: 0
+                  }}>{lookingUp ? "…" : "Lookup"}</button>
+                </div>
+              </Field>
+              <Field label="Company Name">
+                <input style={styles.input} value={editH.name}
+                  onChange={e => setEditH(p => ({ ...p, name: e.target.value }))}/>
+              </Field>
+              <Field label="Buy Date">
+                <input type="date" style={styles.input} value={editH.buyDate}
+                  onChange={e => setEditH(p => ({ ...p, buyDate: e.target.value }))}/>
+              </Field>
+              <Field label="Buy Price ($)">
+                <input type="number" style={styles.input} value={editH.buyPrice}
+                  onChange={e => setEditH(p => ({ ...p, buyPrice: e.target.value }))}/>
+              </Field>
+              <Field label="Shares">
+                <input type="number" style={styles.input} value={editH.shares}
+                  onChange={e => setEditH(p => ({ ...p, shares: e.target.value }))}/>
+              </Field>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <Field label="Leverage">
+                  <LevSelector levPct={editH.levPct} onChange={v => setEditH(p => ({ ...p, levPct: v }))}/>
+                </Field>
+              </div>
+              <Field label="Amount Invested (Margin)">
+                <div style={{ ...styles.input, background: "#0a1220", border: "1px solid #1c2c45", color: GOLD, fontWeight: 700, cursor: "default" }}>
+                  {editH.buyPrice && editH.shares
+                    ? fmtUSD(parseFloat(editH.buyPrice) * parseFloat(editH.shares) * (Math.min(100, Math.max(0.01, parseFloat(editH.levPct) || 100)) / 100))
+                    : <span style={{ color: "#4a5a78" }}>—</span>}
+                </div>
+              </Field>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button onClick={saveEdit} style={styles.primaryBtn}>Save Changes</button>
+              <button onClick={() => setEditH(null)} style={styles.ghostBtn}>Cancel</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
