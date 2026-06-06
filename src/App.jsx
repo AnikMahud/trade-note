@@ -441,7 +441,7 @@ function TradingJournal() {
               display:"flex",background:"#0e1a2e",borderBottom:"1px solid #14223a",
               justifyContent:"space-around",flexShrink:0
             }}>
-              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"]].map(([v,l])=>{
+              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"],["portfolio","Portfolio"]].map(([v,l])=>{
                 const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
                 return (
                   <button key={v} onClick={()=>{
@@ -466,7 +466,7 @@ function TradingJournal() {
             <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
-            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"]].map(([v,l])=>(
+            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"],["portfolio","◈ Portfolio"]].map(([v,l])=>(
               <button key={v} onClick={()=>{
                 if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
                 else setView(v);
@@ -923,6 +923,10 @@ function TradingJournal() {
 
         {view==="target" && (
           <div style={S.page}><TargetPage requireUnlock={requireUnlock} unlocked={unlocked} showToast={showToast} ledger={ledger} trades={trades} /></div>
+        )}
+
+        {view==="portfolio" && (
+          <div style={S.page}><PortfolioPage requireUnlock={requireUnlock} showToast={showToast}/></div>
         )}
       </div>
 
@@ -1685,6 +1689,350 @@ function StatCard({ label, value, sub, color }) {
 
 const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
+
+function PortfolioPage({ requireUnlock, showToast }) {
+  const PKEY = "tn-portfolio-v1";
+  const [holdings, setHoldings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch { return []; }
+  });
+  const [quotes, setQuotes] = useState({});
+  const [form, setForm] = useState({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "" });
+  const [showForm, setShowForm] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const persist = (next) => {
+    setHoldings(next);
+    try { localStorage.setItem(PKEY, JSON.stringify(next)); } catch {}
+  };
+
+  const fetchQuote = async (sym) => {
+    const r = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
+    const j = await r.json().catch(() => ({ error: String(r.status) }));
+    if (!r.ok) throw new Error(j.error || String(r.status));
+    return j;
+  };
+
+  const loadQuotes = (list) => {
+    const syms = [...new Set(list.map(h => h.symbol))];
+    if (!syms.length) return;
+    setRefreshing(true);
+    Promise.allSettled(syms.map(s => fetchQuote(s))).then(res => {
+      setQuotes(prev => {
+        const next = { ...prev };
+        res.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            const q = r.value;
+            next[syms[i]] = { price: q.price, high52w: q.high52w, low52w: q.low52w };
+          }
+        });
+        return next;
+      });
+    }).finally(() => setRefreshing(false));
+  };
+
+  useEffect(() => { loadQuotes(holdings); }, []);
+
+  const lookup = async () => {
+    const sym = form.symbol.trim().toUpperCase();
+    if (!sym) return;
+    setLookingUp(true);
+    try {
+      const q = await fetchQuote(sym);
+      setForm(p => ({ ...p, symbol: q.symbol, name: q.name }));
+      setQuotes(p => ({ ...p, [q.symbol]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }));
+    } catch (e) {
+      showToast("Symbol not found: " + e.message, "err");
+    } finally { setLookingUp(false); }
+  };
+
+  const doRefresh = async () => {
+    const syms = [...new Set(holdings.map(h => h.symbol))];
+    if (!syms.length) return;
+    setRefreshing(true);
+    try {
+      const res = await Promise.allSettled(syms.map(s => fetchQuote(s)));
+      setQuotes(prev => {
+        const next = { ...prev };
+        res.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            const q = r.value;
+            next[syms[i]] = { price: q.price, high52w: q.high52w, low52w: q.low52w };
+          }
+        });
+        return next;
+      });
+      showToast("Prices updated ✓", "ok");
+    } catch { showToast("Refresh failed", "err"); }
+    finally { setRefreshing(false); }
+  };
+
+  const addHolding = () => {
+    const sym = form.symbol.trim().toUpperCase();
+    if (!sym || !form.buyPrice || !form.shares) {
+      showToast("Symbol, buy price, and shares are required", "err"); return;
+    }
+    const h = {
+      id: Date.now(),
+      symbol: sym,
+      name: form.name || sym,
+      buyDate: form.buyDate,
+      buyPrice: parseFloat(form.buyPrice),
+      shares: parseFloat(form.shares),
+    };
+    persist([...holdings, h]);
+    if (!quotes[sym]) {
+      fetchQuote(sym).then(q =>
+        setQuotes(p => ({ ...p, [sym]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))
+      ).catch(() => {});
+    }
+    setForm({ symbol: "", name: "", buyDate: new Date().toISOString().slice(0, 10), buyPrice: "", shares: "" });
+    setShowForm(false);
+    showToast("Holding added ✓", "ok");
+  };
+
+  const removeHolding = (id) => requireUnlock(() => {
+    if (!confirm("Remove this holding?")) return;
+    persist(holdings.filter(h => h.id !== id));
+    showToast("Removed ✓", "ok");
+  });
+
+  const totals = useMemo(() => {
+    let inv = 0, cur = 0;
+    holdings.forEach(h => {
+      const q = quotes[h.symbol];
+      inv += h.buyPrice * h.shares;
+      cur += (q?.price != null ? q.price : h.buyPrice) * h.shares;
+    });
+    const gl = cur - inv;
+    const glPct = inv > 0 ? (gl / inv) * 100 : 0;
+    return { inv, cur, gl, glPct };
+  }, [holdings, quotes]);
+
+  const fmtUSD = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const lookupSym = form.symbol.trim().toUpperCase();
+  const lookupQ = quotes[lookupSym];
+
+  return (
+    <div>
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", fontWeight: 500, fontSize: 30, color: "#eee0bf", letterSpacing: 1, lineHeight: 1.1 }}>
+          Stock Portfolio
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 8 }}>
+          <div style={{ width: 40, height: 1, background: GOLD, opacity: 0.5 }} />
+          <span style={{ fontSize: 10, color: GOLD, fontFamily: "'JetBrains Mono',monospace", letterSpacing: 4, textTransform: "uppercase" }}>Holdings Tracker</span>
+          <div style={{ width: 40, height: 1, background: GOLD, opacity: 0.5 }} />
+        </div>
+      </div>
+
+      {holdings.length > 0 && (
+        <div style={styles.kpiRow}>
+          {[
+            { label: "Total Invested", value: fmtUSD(totals.inv), color: "#eee0bf" },
+            { label: "Current Value", value: fmtUSD(totals.cur), color: pnlColor(totals.cur - totals.inv) },
+            { label: "Total Gain / Loss", value: fmt$(totals.gl), color: pnlColor(totals.gl) },
+            { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${holdings.length} holding${holdings.length !== 1 ? "s" : ""}` },
+          ].map(k => (
+            <div key={k.label} style={styles.kpiCard}>
+              <div style={styles.kpiLabel}>{k.label}</div>
+              <div style={{ ...styles.kpiValue, fontSize: 18, color: k.color }}>{k.value}</div>
+              {k.sub && <div style={styles.kpiSub}>{k.sub}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <button onClick={() => {
+          if (showForm) { setShowForm(false); }
+          else { requireUnlock(() => setShowForm(true)); }
+        }} style={{
+          background: showForm ? "rgba(198,164,76,0.15)" : "transparent",
+          border: `1px solid ${showForm ? GOLD : GOLD + "66"}`,
+          borderRadius: 6, padding: "8px 16px", color: GOLD, fontSize: 11, cursor: "pointer",
+          fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600
+        }}>
+          {showForm ? "✕ Close" : "+ Add Holding"}
+        </button>
+        {holdings.length > 0 && (
+          <button onClick={doRefresh} disabled={refreshing} style={{
+            background: "transparent", border: "1px solid #26385a", borderRadius: 6,
+            padding: "8px 16px", color: refreshing ? "#4a5a78" : "#9caac4", fontSize: 11,
+            cursor: refreshing ? "wait" : "pointer",
+            fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600,
+            opacity: refreshing ? 0.6 : 1
+          }}>
+            {refreshing ? "Updating…" : "⟳ Refresh Prices"}
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div style={{ ...styles.card, marginBottom: 16, borderColor: GOLD + "44" }}>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardTitle}>New Holding</span>
+            <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>
+              Type symbol → Lookup → fill details
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+            <Field label="Symbol *">
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  placeholder="AAPL, TSLA…"
+                  style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
+                  value={form.symbol}
+                  onChange={e => setForm(p => ({ ...p, symbol: e.target.value.toUpperCase(), name: "" }))}
+                  onKeyDown={e => { if (e.key === "Enter") lookup(); }}
+                />
+                <button
+                  onClick={lookup}
+                  disabled={lookingUp || !form.symbol.trim()}
+                  style={{
+                    background: "transparent", border: `1px solid ${GOLD}66`, borderRadius: 6,
+                    padding: "0 12px", color: GOLD, fontSize: 11,
+                    cursor: lookingUp || !form.symbol.trim() ? "wait" : "pointer",
+                    fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase",
+                    fontWeight: 700, opacity: lookingUp || !form.symbol.trim() ? 0.4 : 1,
+                    whiteSpace: "nowrap", flexShrink: 0
+                  }}
+                >
+                  {lookingUp ? "…" : "Lookup"}
+                </button>
+              </div>
+            </Field>
+
+            <Field label="Company Name">
+              <input
+                placeholder="Auto-filled on lookup"
+                style={{ ...styles.input, color: form.name ? "#eee0bf" : undefined }}
+                value={form.name}
+                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              />
+            </Field>
+
+            <Field label="Buy Date">
+              <input type="date" style={styles.input} value={form.buyDate}
+                onChange={e => setForm(p => ({ ...p, buyDate: e.target.value }))} />
+            </Field>
+
+            <Field label="Buy Price ($) *">
+              <input type="number" placeholder="0.00" style={styles.input} value={form.buyPrice}
+                onChange={e => setForm(p => ({ ...p, buyPrice: e.target.value }))} />
+            </Field>
+
+            <Field label="Shares *">
+              <input type="number" placeholder="0" style={styles.input} value={form.shares}
+                onChange={e => setForm(p => ({ ...p, shares: e.target.value }))} />
+            </Field>
+
+            <Field label="Amount Invested">
+              <div style={{
+                ...styles.input, background: "#0a1220", border: "1px solid #1c2c45",
+                color: GOLD, fontWeight: 700, cursor: "default"
+              }}>
+                {form.buyPrice && form.shares && !isNaN(parseFloat(form.buyPrice)) && !isNaN(parseFloat(form.shares))
+                  ? fmtUSD(parseFloat(form.buyPrice) * parseFloat(form.shares))
+                  : <span style={{ color: "#4a5a78" }}>—</span>}
+              </div>
+            </Field>
+          </div>
+
+          {lookupSym && lookupQ && (
+            <div style={{
+              marginTop: 12, padding: "10px 14px", background: "#0e1a2e",
+              borderRadius: 6, border: "1px solid #1c2c45", display: "flex", gap: 28, flexWrap: "wrap"
+            }}>
+              {[
+                { label: "Current Price", value: lookupQ.price, color: GOLD },
+                { label: "52W High", value: lookupQ.high52w, color: G },
+                { label: "52W Low", value: lookupQ.low52w, color: R },
+              ].map(({ label, value, color }) => (
+                <div key={label}>
+                  <span style={{ fontSize: 9, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", letterSpacing: 1, textTransform: "uppercase" }}>{label} · </span>
+                  <span style={{ fontFamily: "'JetBrains Mono',monospace", color, fontWeight: 700, fontSize: 13 }}>
+                    {value != null ? `$${value.toFixed(2)}` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={addHolding} style={styles.primaryBtn}>Save Holding</button>
+            <button onClick={() => setShowForm(false)} style={styles.ghostBtn}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {holdings.length === 0 ? (
+        <div style={styles.empty}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📈</div>
+          <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 20, color: "#eee0bf", marginBottom: 8 }}>No holdings yet</div>
+          <div style={{ color: "#5a6b88", fontSize: 13, marginBottom: 24 }}>Add your first stock to start tracking your portfolio</div>
+          <button style={styles.primaryBtn} onClick={() => requireUnlock(() => setShowForm(true))}>Add First Holding</button>
+        </div>
+      ) : (
+        <div style={styles.tableWrap}>
+          <table style={{ ...styles.table, minWidth: 1100 }}>
+            <thead>
+              <tr>
+                {["Symbol","Company","Buy Date","Buy Price","Shares","Invested","Current Price","52W High","52W Low","Current Value","Gain/Loss $","Gain/Loss %",""].map(h => (
+                  <th key={h} style={styles.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {holdings.map(h => {
+                const q = quotes[h.symbol] || {};
+                const hasPx = q.price != null;
+                const amt = h.buyPrice * h.shares;
+                const curVal = hasPx ? q.price * h.shares : amt;
+                const gl = curVal - amt;
+                const glPct = (gl / amt) * 100;
+                const c = pnlColor(gl);
+                return (
+                  <tr key={h.id} style={styles.tr}
+                    onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: GOLD }}>{h.symbol}</td>
+                    <td style={{ ...styles.td, color: "#cec2a3", fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
+                    <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.buyDate}</td>
+                    <td style={{ ...styles.td, ...styles.tdMono }}>${h.buyPrice.toFixed(2)}</td>
+                    <td style={{ ...styles.td, ...styles.tdMono }}>{h.shares.toLocaleString()}</td>
+                    <td style={{ ...styles.td, ...styles.tdMono, color: "#9caac4" }}>{fmtUSD(amt)}</td>
+                    <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#4a5a78", fontWeight: 700 }}>
+                      {hasPx ? `$${q.price.toFixed(2)}` : <span style={{ fontSize: 10, color: "#3a4a62" }}>loading…</span>}
+                    </td>
+                    <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.high52w != null ? G : "#4a5a78" }}>
+                      {hasPx && q.high52w != null ? `$${q.high52w.toFixed(2)}` : "—"}
+                    </td>
+                    <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.low52w != null ? R : "#4a5a78" }}>
+                      {hasPx && q.low52w != null ? `$${q.low52w.toFixed(2)}` : "—"}
+                    </td>
+                    <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: hasPx ? "#eee0bf" : "#4a5a78" }}>
+                      {hasPx ? fmtUSD(curVal) : "—"}
+                    </td>
+                    <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
+                      {hasPx ? fmt$(gl) : "—"}
+                    </td>
+                    <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
+                      {hasPx ? fmtN(glPct) + "%" : "—"}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: "right" }}>
+                      <button onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Lightbox({ urls, index, onChange, onClose }) {
   const total = urls.length;
