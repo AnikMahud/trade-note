@@ -1735,12 +1735,14 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     fetch("/api/portfolio", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
-    }).catch(e => console.warn("portfolio sync save failed:", e));
+    }).then(r => { if (!r.ok) throw new Error("api " + r.status); })
+      .catch(e => { console.warn("portfolio sync save failed:", e); showToast("Cloud save failed — check Notion setup", "err"); });
   };
 
   const syncDelete = (id) => {
     fetch(`/api/portfolio?id=${encodeURIComponent(id)}`, { method: "DELETE" })
-      .catch(e => console.warn("portfolio sync delete failed:", e));
+      .then(r => { if (!r.ok) throw new Error("api " + r.status); })
+      .catch(e => { console.warn("portfolio sync delete failed:", e); showToast("Cloud delete failed", "err"); });
   };
 
   const fetchQuote = async (sym) => {
