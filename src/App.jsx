@@ -1769,17 +1769,26 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   };
 
   useEffect(() => {
-    // Load from Notion (syncs across all devices), fall back to localStorage cache
+    let cached = [];
+    try { cached = JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch {}
+
     fetch("/api/portfolio")
       .then(r => r.ok ? r.json() : Promise.reject("api " + r.status))
       .then(list => {
+        if (list.length === 0 && cached.length > 0) {
+          // Notion database is empty but local data exists — migrate it up
+          setHoldings(cached);
+          loadQuotes(cached);
+          cached.forEach(h => syncSave(h));
+          return;
+        }
         setHoldings(list);
         try { localStorage.setItem(PKEY, JSON.stringify(list)); } catch {}
         loadQuotes(list);
       })
-      .catch(e => {
-        console.warn("Portfolio API failed, using local cache:", e);
-        loadQuotes(holdings);
+      .catch(() => {
+        // API not reachable — use local cache
+        if (cached.length) { setHoldings(cached); loadQuotes(cached); }
       });
   }, []);
 
