@@ -1731,6 +1731,18 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     try { localStorage.setItem(PKEY, JSON.stringify(next)); } catch {}
   };
 
+  const syncSave = (item) => {
+    fetch("/api/portfolio", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(item),
+    }).catch(e => console.warn("portfolio sync save failed:", e));
+  };
+
+  const syncDelete = (id) => {
+    fetch(`/api/portfolio?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      .catch(e => console.warn("portfolio sync delete failed:", e));
+  };
+
   const fetchQuote = async (sym) => {
     const r = await fetch(`/api/quote?symbol=${encodeURIComponent(sym)}`);
     const j = await r.json().catch(() => ({ error: String(r.status) }));
@@ -1756,7 +1768,20 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     }).finally(() => setRefreshing(false));
   };
 
-  useEffect(() => { loadQuotes(holdings); }, []);
+  useEffect(() => {
+    // Load from Notion (syncs across all devices), fall back to localStorage cache
+    fetch("/api/portfolio")
+      .then(r => r.ok ? r.json() : Promise.reject("api " + r.status))
+      .then(list => {
+        setHoldings(list);
+        try { localStorage.setItem(PKEY, JSON.stringify(list)); } catch {}
+        loadQuotes(list);
+      })
+      .catch(e => {
+        console.warn("Portfolio API failed, using local cache:", e);
+        loadQuotes(holdings);
+      });
+  }, []);
 
   const lookup = async (target, setTarget) => {
     const sym = target.symbol.trim().toUpperCase();
@@ -1798,11 +1823,12 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     }
     const lp = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
     const h = {
-      id: Date.now(), symbol: sym, name: form.name || sym,
+      id: String(Date.now()), symbol: sym, name: form.name || sym,
       buyDate: form.buyDate, buyPrice: parseFloat(form.buyPrice),
       shares: parseFloat(form.shares), levPct: lp, status: "open",
     };
     persist([...holdings, h]);
+    syncSave(h);
     if (!quotes[sym]) {
       fetchQuote(sym).then(q => setQuotes(p => ({ ...p, [sym]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))).catch(() => {});
     }
@@ -1817,6 +1843,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     const updated = { ...editH, buyPrice: parseFloat(editH.buyPrice), shares: parseFloat(editH.shares), levPct: lp };
     delete updated.leverage; // clear old field if present
     persist(holdings.map(x => x.id === updated.id ? updated : x));
+    syncSave(updated);
     if (!quotes[updated.symbol]) {
       fetchQuote(updated.symbol).then(q => setQuotes(p => ({ ...p, [updated.symbol]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))).catch(() => {});
     }
@@ -1827,16 +1854,20 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   const removeHolding = (id) => requireUnlock(() => {
     if (!confirm("Remove this holding?")) return;
     persist(holdings.filter(h => h.id !== id));
+    syncDelete(id);
     showToast("Removed ✓", "ok");
   });
 
   const closePosition = () => {
     if (!closeModal?.sellPrice) { showToast("Enter a sell price", "err"); return; }
-    persist(holdings.map(h => h.id === closeModal.id ? {
+    const next = holdings.map(h => h.id === closeModal.id ? {
       ...h, status: "closed",
       sellPrice: parseFloat(closeModal.sellPrice),
       sellDate: closeModal.sellDate,
-    } : h));
+    } : h);
+    persist(next);
+    const closedH = next.find(h => h.id === closeModal.id);
+    if (closedH) syncSave(closedH);
     setCloseModal(null);
     showToast("Position closed ✓", "ok");
   };
