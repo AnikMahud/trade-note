@@ -926,7 +926,17 @@ function TradingJournal() {
         )}
 
         {view==="portfolio" && (
-          <div style={S.page}><PortfolioPage requireUnlock={requireUnlock} showToast={showToast} ledger={ledger} trades={trades}/></div>
+          <div style={S.page}><PortfolioPage requireUnlock={requireUnlock} showToast={showToast} ledger={ledger} trades={trades}
+            onCloseTrade={async (trade) => {
+              try {
+                await saveTrade(trade);
+                await reloadTrades();
+                showToast("Position closed — journal entry added ✓", "ok");
+              } catch (e) {
+                showToast("Position closed. Journal save failed: " + (e.message || "unknown"), "err");
+              }
+            }}
+          /></div>
         )}
       </div>
 
@@ -1690,7 +1700,7 @@ function StatCard({ label, value, sub, color }) {
 const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
 
-function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
+function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onCloseTrade }) {
   const PKEY = "tn-portfolio-v1";
   // Leverage presets: label shown to user → margin % stored internally
   // e.g. 10× leverage means you put up 10% of the buy price as margin
@@ -1869,18 +1879,41 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     showToast("Removed ✓", "ok");
   });
 
-  const closePosition = () => {
+  const closePosition = async () => {
     if (!closeModal?.sellPrice) { showToast("Enter a sell price", "err"); return; }
-    const next = holdings.map(h => h.id === closeModal.id ? {
-      ...h, status: "closed",
-      sellPrice: parseFloat(closeModal.sellPrice),
-      sellDate: closeModal.sellDate,
-    } : h);
+    const { id: hId, sellDate } = closeModal;
+    const sellPrice = parseFloat(closeModal.sellPrice);
+    const h = holdings.find(x => x.id === hId);
+    const next = holdings.map(x => x.id === hId ? {
+      ...x, status: "closed", sellPrice, sellDate,
+    } : x);
     persist(next);
-    const closedH = next.find(h => h.id === closeModal.id);
+    const closedH = next.find(x => x.id === hId);
     if (closedH) syncSave(closedH);
     setCloseModal(null);
-    showToast("Position closed ✓", "ok");
+    if (h && onCloseTrade) {
+      const pnl = parseFloat(((sellPrice - h.buyPrice) * h.shares).toFixed(2));
+      await onCloseTrade({
+        id: Date.now(),
+        date: sellDate || new Date().toISOString().slice(0, 10),
+        time: "",
+        symbol: h.symbol,
+        direction: "Long",
+        setup: "Other",
+        entry: h.buyPrice,
+        exit: sellPrice,
+        size: h.shares,
+        pnl,
+        rMultiple: "",
+        grade: "A",
+        emotion: "Neutral",
+        notes: `Portfolio close — ${h.name || h.symbol}`,
+        screenshots: [],
+        screenshotsTouched: false,
+      });
+    } else {
+      showToast("Position closed ✓", "ok");
+    }
   };
 
   const totals = useMemo(() => {
