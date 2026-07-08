@@ -2016,7 +2016,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             { label: "Current Value", value: fmtUSD(totals.cur), color: pnlColor(totals.gl) },
             { label: "Total Gain / Loss", value: fmt$(totals.gl), color: pnlColor(totals.gl) },
             { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${openHoldings.length} open · ${closedHoldings.length} closed` },
-            { label: "Available Balance", value: fmtUSD(accountEquity - totals.inv - totals.gl), color: GOLD, sub: "equity − invested − P&L" },
+            { label: "Available Balance", value: fmtUSD(accountEquity - totals.inv - Math.abs(totals.gl)), color: GOLD, sub: "equity − invested − P&L" },
           ].map(k => (
             <div key={k.label} style={styles.kpiCard}>
               <div style={styles.kpiLabel}>{k.label}</div>
