@@ -420,6 +420,7 @@ function TradingJournal() {
         ::-webkit-scrollbar-thumb { background: #2a3a55; border-radius: 2px; }
         input, textarea, select { outline: none; }
         input::placeholder, textarea::placeholder { color: #4a5a78; }
+        @keyframes tnPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
       `}</style>
 
       {isMobile ? (
@@ -1726,6 +1727,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(() => localStorage.getItem("tn-portfolio-auto") === "1");
   const [editH, setEditH] = useState(null);
   const [closeModal, setCloseModal] = useState(null); // { id, symbol, sellPrice, sellDate }
 
@@ -1817,12 +1819,14 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     } finally { setLookingUp(false); }
   };
 
-  const doRefresh = async () => {
+  const doRefresh = async (silent = false) => {
     const syms = [...new Set(holdings.filter(h => !h.status || h.status === "open").map(h => h.symbol))];
-    if (!syms.length) return;
+    if (!syms.length) return true;
     setRefreshing(true);
+    let anyOk = false;
     try {
       const res = await Promise.allSettled(syms.map(s => fetchQuote(s)));
+      anyOk = res.some(r => r.status === "fulfilled");
       setQuotes(prev => {
         const next = { ...prev };
         res.forEach((r, i) => {
@@ -1832,9 +1836,49 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
         });
         return next;
       });
-      showToast("Prices updated ✓", "ok");
-    } catch { showToast("Refresh failed", "err"); }
+      if (!silent) showToast(anyOk ? "Prices updated ✓" : "Refresh failed", anyOk ? "ok" : "err");
+    } catch { if (!silent) showToast("Refresh failed", "err"); }
     finally { setRefreshing(false); }
+    return anyOk;
+  };
+
+  const doRefreshRef = useRef(doRefresh);
+  doRefreshRef.current = doRefresh;
+  const autoFailCountRef = useRef(0);
+
+  // Scales with open-position count so we stay under Twelve Data's free-tier
+  // rate limit (~8 req/min) regardless of portfolio size. Floor of 30s.
+  const autoRefreshMs = useMemo(() => {
+    const symCount = new Set(holdings.filter(h => !h.status || h.status === "open").map(h => h.symbol)).size;
+    return Math.max(30000, symCount * 8000);
+  }, [holdings]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    autoFailCountRef.current = 0;
+    const id = setInterval(async () => {
+      if (document.visibilityState !== "visible") return; // skip while tab is backgrounded
+      const ok = await doRefreshRef.current(true);
+      if (ok) { autoFailCountRef.current = 0; return; }
+      autoFailCountRef.current += 1;
+      if (autoFailCountRef.current >= 3) {
+        // Quote source is failing repeatedly (likely rate-limited) — stop rather than keep hammering it
+        clearInterval(id);
+        setAutoRefresh(false);
+        try { localStorage.setItem("tn-portfolio-auto", "0"); } catch {}
+        showToast("Auto-refresh paused — quote source unavailable", "err");
+      }
+    }, autoRefreshMs);
+    return () => clearInterval(id);
+  }, [autoRefresh, autoRefreshMs]);
+
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(v => {
+      const next = !v;
+      try { localStorage.setItem("tn-portfolio-auto", next ? "1" : "0"); } catch {}
+      if (next) doRefreshRef.current();
+      return next;
+    });
   };
 
   const addHolding = () => {
@@ -2041,6 +2085,23 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             cursor: refreshing ? "wait" : "pointer",
             fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600, opacity: refreshing ? 0.6 : 1
           }}>{refreshing ? "Updating…" : "⟳ Refresh Prices"}</button>
+        )}
+        {holdings.length > 0 && (
+          <button onClick={toggleAutoRefresh} style={{
+            background: autoRefresh ? "rgba(198,164,76,0.15)" : "transparent",
+            border: `1px solid ${autoRefresh ? GOLD : "#26385a"}`, borderRadius: 6,
+            padding: "8px 16px", color: autoRefresh ? GOLD : "#9caac4", fontSize: 11, cursor: "pointer",
+            fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 6
+          }}>
+            {autoRefresh && (
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%", background: GOLD, display: "inline-block",
+                animation: "tnPulse 1s ease-in-out infinite"
+              }} />
+            )}
+            {autoRefresh ? `Auto · ${autoRefreshMs / 1000}s` : "Auto Refresh"}
+          </button>
         )}
       </div>
 
