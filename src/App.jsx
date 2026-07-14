@@ -442,7 +442,7 @@ function TradingJournal() {
               display:"flex",background:"#0e1a2e",borderBottom:"1px solid #14223a",
               justifyContent:"space-around",flexShrink:0
             }}>
-              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"],["portfolio","Portfolio"]].map(([v,l])=>{
+              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"],["portfolio","Portfolio"],["scanner","Scanner"]].map(([v,l])=>{
                 const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
                 return (
                   <button key={v} onClick={()=>{
@@ -467,7 +467,7 @@ function TradingJournal() {
             <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
-            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"],["portfolio","◈ Portfolio"]].map(([v,l])=>(
+            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"],["portfolio","◈ Portfolio"],["scanner","⌕ Scanner"]].map(([v,l])=>(
               <button key={v} onClick={()=>{
                 if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
                 else setView(v);
@@ -938,6 +938,10 @@ function TradingJournal() {
               }
             }}
           /></div>
+        )}
+
+        {view==="scanner" && (
+          <div style={S.page}><ScannerPage showToast={showToast}/></div>
         )}
       </div>
 
@@ -2433,6 +2437,181 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
         </div>
       )}
     </div>
+  );
+}
+
+function ScannerPage({ showToast }) {
+  const CFG_KEY = "tn-scanner-cfg-v1";
+
+  const [results, setResults] = useState([]);
+  const [errors, setErrors] = useState([]);
+  const [generatedAt, setGeneratedAt] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [cfg, setCfg] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CFG_KEY) || "{}");
+      return { balance: saved.balance ?? 1550, riskPct: saved.riskPct ?? 1 };
+    } catch { return { balance: 1550, riskPct: 1 }; }
+  });
+
+  const saveCfg = (next) => {
+    setCfg(next);
+    try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch {}
+  };
+
+  const runScan = async (silent = false) => {
+    if (silent) setRefreshing(true); else setLoading(true);
+    try {
+      const r = await fetch("/api/scanner");
+      const j = await r.json().catch(() => ({ error: String(r.status) }));
+      if (!r.ok) throw new Error(j.error || String(r.status));
+      setResults(j.results || []);
+      setErrors(j.errors || []);
+      setGeneratedAt(j.generatedAt || new Date().toISOString());
+      if (silent) showToast("Prices refreshed ✓", "ok");
+    } catch (e) {
+      showToast("Scan failed: " + (e.message || "unknown"), "err");
+    } finally {
+      setLoading(false); setRefreshing(false);
+    }
+  };
+
+  useEffect(() => { runScan(false); }, []);
+
+  const riskAmount = (Number(cfg.balance) || 0) * (Number(cfg.riskPct) || 0) / 100;
+
+  const withSizing = results.map(row => {
+    const shares = row.stopDistance > 0 ? Math.floor(riskAmount / row.stopDistance) : 0;
+    return { ...row, shares, riskAmount: round2(shares * row.stopDistance) };
+  });
+
+  const signals = withSizing.filter(r => r.buySignal);
+
+  return (
+    <div>
+      <div style={{ ...styles.cardHeader, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={styles.cardTitle}>Dip-Buy Scanner</div>
+          <div style={{ fontSize: 11, color: "#5a6b88", fontFamily: "'JetBrains Mono',monospace", marginTop: 4 }}>
+            {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : "—"}
+            {loading ? " · loading…" : ""}
+          </div>
+        </div>
+        <button
+          onClick={() => runScan(true)}
+          disabled={loading || refreshing}
+          style={{ ...styles.ghostBtn, opacity: (loading || refreshing) ? 0.6 : 1 }}
+        >
+          {refreshing ? "Refreshing…" : "⟳ Refresh Prices"}
+        </button>
+      </div>
+
+      <div style={{ ...styles.card, marginBottom: 14 }}>
+        <div style={styles.formGrid}>
+          <Field label="Account Balance ($)">
+            <input
+              type="number" style={styles.input} value={cfg.balance}
+              onChange={e => saveCfg({ ...cfg, balance: e.target.value })}
+            />
+          </Field>
+          <Field label="Risk Per Trade (%)">
+            <input
+              type="number" step="0.5" style={styles.input} value={cfg.riskPct}
+              onChange={e => saveCfg({ ...cfg, riskPct: e.target.value })}
+            />
+          </Field>
+          <Field label="Risking Per Trade">
+            <div style={{ ...styles.input, display: "flex", alignItems: "center", color: G, fontWeight: 700 }}>
+              ${riskAmount.toFixed(2)}
+            </div>
+          </Field>
+        </div>
+      </div>
+
+      {signals.length > 0 && (
+        <div style={{
+          marginBottom: 14, padding: "12px 16px", borderRadius: 10,
+          background: "linear-gradient(135deg, rgba(165,178,133,0.18), rgba(165,178,133,0.04))",
+          border: `1px solid ${G}66`,
+          fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", fontSize: 15, color: "#eee0bf",
+        }}>
+          {signals.length} signal{signals.length > 1 ? "s" : ""} today: {signals.map(s => s.ticker).join(", ")}
+        </div>
+      )}
+
+      <div style={styles.tableWrap}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Ticker</th>
+              <th style={styles.th}>Close</th>
+              <th style={styles.th}>Steps</th>
+              <th style={styles.th}>Trend</th>
+              <th style={styles.th}>Pullback %</th>
+              <th style={styles.th}>Dip</th>
+              <th style={styles.th}>RSI</th>
+              <th style={styles.th}>Confirm</th>
+              <th style={styles.th}>Signal</th>
+              <th style={styles.th}>Shares</th>
+              <th style={styles.th}>Stop $</th>
+            </tr>
+          </thead>
+          <tbody>
+            {withSizing.map(row => (
+              <tr key={row.ticker} style={{ ...styles.tr, background: row.buySignal ? "rgba(165,178,133,0.10)" : "transparent" }}>
+                <td style={{ ...styles.td, fontWeight: 700 }}>{row.ticker}</td>
+                <td style={{ ...styles.td, ...styles.tdMono }}>{row.close?.toFixed(2)}</td>
+                <td style={styles.td}><StepDots trendOk={row.trendOk} dipOk={row.dipOk} confirmOk={row.confirmOk} /></td>
+                <td style={styles.td}><Pill ok={row.trendOk} /></td>
+                <td style={{ ...styles.td, ...styles.tdMono }}>{row.pullbackPct?.toFixed(1)}</td>
+                <td style={styles.td}><Pill ok={row.dipOk} /></td>
+                <td style={{ ...styles.td, ...styles.tdMono }}>{row.rsi?.toFixed(1)}</td>
+                <td style={styles.td}><Pill ok={row.confirmOk} /></td>
+                <td style={styles.td}>{row.buySignal
+                  ? <span style={{ ...styles.dirBadge, background: G + "33", color: G }}>▲ BUY</span>
+                  : <span style={{ fontSize: 11, color: "#4a5a78" }}>—</span>}
+                </td>
+                <td style={{ ...styles.td, ...styles.tdMono }}>{row.buySignal ? (row.shares < 1 ? "0" : row.shares) : "—"}</td>
+                <td style={{ ...styles.td, ...styles.tdMono }}>{row.buySignal ? row.stopPrice?.toFixed(2) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {errors.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 11, color: "#7a8aa8", fontFamily: "'JetBrains Mono',monospace" }}>
+          Could not fetch: {errors.map(e => e.ticker).join(", ")}
+        </div>
+      )}
+
+      <div style={{ marginTop: 16, fontSize: 11, color: "#5a6b88", lineHeight: 1.6 }}>
+        Rules: Trend = close above 200 &amp; 50-day EMA · Dip = 5–10% pullback, near 20-EMA, or RSI 30–40 ·
+        Confirm = bullish candle with volume or RSI turning up. Position size risks {cfg.riskPct}% of balance against a 1.5× ATR(14) stop.
+        Nothing here executes trades automatically.
+      </div>
+    </div>
+  );
+}
+
+function Pill({ ok }) {
+  return ok
+    ? <span style={{ fontSize: 11, fontWeight: 700, color: G }}>✓</span>
+    : <span style={{ fontSize: 11, color: "#4a5a78" }}>—</span>;
+}
+
+function StepDots({ trendOk, dipOk, confirmOk }) {
+  const vals = [trendOk, dipOk, confirmOk];
+  return (
+    <span style={{ display: "inline-flex", gap: 3 }}>
+      {vals.map((v, i) => (
+        <span key={i} style={{
+          width: 6, height: 6, borderRadius: "50%",
+          background: v ? G : "#26385a", display: "inline-block",
+        }} />
+      ))}
+    </span>
   );
 }
 
