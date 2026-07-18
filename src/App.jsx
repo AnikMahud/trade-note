@@ -2442,6 +2442,10 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
 
 function ScannerPage({ showToast }) {
   const CFG_KEY = "tn-scanner-cfg-v1";
+  const POS_KEY = "tn-scanner-positions-v1";
+  const AUTO_REFRESH_MS = 5 * 60 * 1000;
+  const TARGET_R_MULT = 2; // take-profit = entry + 2x the stop distance (2R)
+  const FLASH_MS = 30 * 60 * 1000; // how long a just-closed signal stays highlighted in the table
 
   const [results, setResults] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -2454,30 +2458,90 @@ function ScannerPage({ showToast }) {
       return { balance: saved.balance ?? 1550, riskPct: saved.riskPct ?? 1 };
     } catch { return { balance: 1550, riskPct: 1 }; }
   });
+  const [positions, setPositions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(POS_KEY) || "[]"); } catch { return []; }
+  });
+  const positionsRef = useRef(positions);
 
   const saveCfg = (next) => {
     setCfg(next);
     try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch {}
   };
 
-  const runScan = async (silent = false) => {
+  // Paper-tracks every BUY signal automatically: opens a position at the signal price,
+  // then closes it (WIN/LOSS) once price hits the target, the stop, or the trend breaks.
+  // Runs on every scan (manual or auto) — no manual buy/sell action needed.
+  const reconcilePositions = (freshResults) => {
+    const prev = positionsRef.current;
+    const next = prev.map(p => ({ ...p }));
+    const openIdx = new Map();
+    next.forEach((p, i) => { if (p.status === "OPEN") openIdx.set(p.ticker, i); });
+    const nowIso = new Date().toISOString();
+    const notices = [];
+
+    freshResults.forEach(row => {
+      const idx = openIdx.get(row.ticker);
+      if (idx != null) {
+        const pos = next[idx];
+        let exit = null;
+        if (row.close <= pos.stopPrice) exit = { status: "LOSS", reason: "Stop hit" };
+        else if (row.close >= pos.targetPrice) exit = { status: "WIN", reason: "Target hit" };
+        else if (!row.trendOk) exit = { status: row.close >= pos.entryPrice ? "WIN" : "LOSS", reason: "Trend broke" };
+
+        if (exit) {
+          next[idx] = { ...pos, status: exit.status, exitPrice: row.close, exitAt: nowIso, exitReason: exit.reason, lastPrice: row.close };
+          notices.push({ msg: `${exit.status === "WIN" ? "🟢" : "🔴"} SELL ${row.ticker} @ $${row.close.toFixed(2)} — ${exit.reason}`, type: exit.status === "WIN" ? "ok" : "err" });
+        } else {
+          next[idx] = { ...pos, lastPrice: row.close, lastCheckedAt: nowIso };
+        }
+      } else if (row.buySignal) {
+        const target = round2(row.close + TARGET_R_MULT * row.stopDistance);
+        next.push({
+          id: `${row.ticker}-${nowIso}`,
+          ticker: row.ticker,
+          entryPrice: row.close,
+          entryAt: nowIso,
+          stopPrice: row.stopPrice,
+          targetPrice: target,
+          status: "OPEN",
+          exitPrice: null, exitAt: null, exitReason: null,
+          lastPrice: row.close, lastCheckedAt: nowIso,
+        });
+        notices.push({ msg: `▲ BUY ${row.ticker} @ $${row.close.toFixed(2)} — new dip-buy signal`, type: "ok" });
+      }
+    });
+
+    const capped = next.length > 300 ? next.slice(next.length - 300) : next;
+    positionsRef.current = capped;
+    setPositions(capped);
+    try { localStorage.setItem(POS_KEY, JSON.stringify(capped)); } catch {}
+    notices.forEach(n => showToast(n.msg, n.type));
+  };
+
+  const runScan = async (silent = false, auto = false) => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
       const r = await fetch("/api/scanner");
       const j = await r.json().catch(() => ({ error: String(r.status) }));
       if (!r.ok) throw new Error(j.error || String(r.status));
-      setResults(j.results || []);
+      const freshResults = j.results || [];
+      setResults(freshResults);
       setErrors(j.errors || []);
       setGeneratedAt(j.generatedAt || new Date().toISOString());
-      if (silent) showToast("Prices refreshed ✓", "ok");
+      reconcilePositions(freshResults);
+      if (silent && !auto) showToast("Prices refreshed ✓", "ok");
     } catch (e) {
-      showToast("Scan failed: " + (e.message || "unknown"), "err");
+      if (!auto) showToast("Scan failed: " + (e.message || "unknown"), "err");
     } finally {
       setLoading(false); setRefreshing(false);
     }
   };
 
   useEffect(() => { runScan(false); }, []);
+  useEffect(() => {
+    const id = setInterval(() => runScan(true, true), AUTO_REFRESH_MS);
+    return () => clearInterval(id);
+  }, []);
 
   const riskAmount = (Number(cfg.balance) || 0) * (Number(cfg.riskPct) || 0) / 100;
 
@@ -2488,6 +2552,19 @@ function ScannerPage({ showToast }) {
 
   const signals = withSizing.filter(r => r.buySignal);
 
+  // latest tracked position per ticker, used to decorate the Signal column + row highlight
+  const latestByTicker = new Map();
+  positions.forEach(p => {
+    const cur = latestByTicker.get(p.ticker);
+    if (!cur || p.entryAt > cur.entryAt) latestByTicker.set(p.ticker, p);
+  });
+
+  const sortedPositions = [...positions].sort((a, b) => (b.entryAt > a.entryAt ? 1 : -1));
+  const openPositions = sortedPositions.filter(p => p.status === "OPEN");
+  const wins = positions.filter(p => p.status === "WIN").length;
+  const losses = positions.filter(p => p.status === "LOSS").length;
+  const winRate = (wins + losses) > 0 ? round2((wins / (wins + losses)) * 100) : null;
+
   return (
     <div>
       <div style={{ ...styles.cardHeader, flexWrap: "wrap", gap: 10 }}>
@@ -2495,7 +2572,7 @@ function ScannerPage({ showToast }) {
           <div style={styles.cardTitle}>Dip-Buy Scanner</div>
           <div style={{ fontSize: 11, color: "#5a6b88", fontFamily: "'JetBrains Mono',monospace", marginTop: 4 }}>
             {generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString()}` : "—"}
-            {loading ? " · loading…" : ""}
+            {loading ? " · loading…" : ""} · auto-checks every 5 min
           </div>
         </div>
         <button
@@ -2555,27 +2632,61 @@ function ScannerPage({ showToast }) {
               <th style={styles.th}>Signal</th>
               <th style={styles.th}>Shares</th>
               <th style={styles.th}>Stop $</th>
+              <th style={styles.th}>Target $</th>
             </tr>
           </thead>
           <tbody>
-            {withSizing.map(row => (
-              <tr key={row.ticker} style={{ ...styles.tr, background: row.buySignal ? "rgba(165,178,133,0.10)" : "transparent" }}>
-                <td style={{ ...styles.td, fontWeight: 700 }}>{row.ticker}</td>
-                <td style={{ ...styles.td, ...styles.tdMono }}>{row.close?.toFixed(2)}</td>
-                <td style={styles.td}><StepDots trendOk={row.trendOk} dipOk={row.dipOk} confirmOk={row.confirmOk} /></td>
-                <td style={styles.td}><Pill ok={row.trendOk} /></td>
-                <td style={{ ...styles.td, ...styles.tdMono }}>{row.pullbackPct?.toFixed(1)}</td>
-                <td style={styles.td}><Pill ok={row.dipOk} /></td>
-                <td style={{ ...styles.td, ...styles.tdMono }}>{row.rsi?.toFixed(1)}</td>
-                <td style={styles.td}><Pill ok={row.confirmOk} /></td>
-                <td style={styles.td}>{row.buySignal
-                  ? <span style={{ ...styles.dirBadge, background: G + "33", color: G }}>▲ BUY</span>
-                  : <span style={{ fontSize: 11, color: "#4a5a78" }}>—</span>}
-                </td>
-                <td style={{ ...styles.td, ...styles.tdMono }}>{row.buySignal ? (row.shares < 1 ? "0" : row.shares) : "—"}</td>
-                <td style={{ ...styles.td, ...styles.tdMono }}>{row.buySignal ? row.stopPrice?.toFixed(2) : "—"}</td>
-              </tr>
-            ))}
+            {withSizing.map(row => {
+              const tracked = latestByTicker.get(row.ticker);
+              const justClosed = !!(tracked && tracked.status !== "OPEN" &&
+                (Date.now() - new Date(tracked.exitAt).getTime()) < FLASH_MS);
+              const holding = !!(tracked && tracked.status === "OPEN");
+
+              let signalCell;
+              if (justClosed) {
+                const win = tracked.status === "WIN";
+                signalCell = (
+                  <span style={{ ...styles.dirBadge, background: (win ? G : R) + "33", color: win ? G : R }}>
+                    ✕ SELL NOW ${tracked.exitPrice?.toFixed(2)} ({tracked.status})
+                  </span>
+                );
+              } else if (holding) {
+                signalCell = (
+                  <span style={{ ...styles.dirBadge, background: GOLD + "33", color: GOLD }}>
+                    ● HOLD (buy ${tracked.entryPrice?.toFixed(2)})
+                  </span>
+                );
+              } else if (row.buySignal) {
+                signalCell = (
+                  <span style={{ ...styles.dirBadge, background: G + "33", color: G }}>
+                    ▲ BUY ${row.close?.toFixed(2)}
+                  </span>
+                );
+              } else {
+                signalCell = <span style={{ fontSize: 11, color: "#4a5a78" }}>—</span>;
+              }
+
+              const rowBg = justClosed
+                ? (tracked.status === "WIN" ? "rgba(165,178,133,0.16)" : "rgba(138,67,57,0.16)")
+                : (holding ? "rgba(198,164,76,0.10)" : (row.buySignal ? "rgba(165,178,133,0.10)" : "transparent"));
+
+              return (
+                <tr key={row.ticker} style={{ ...styles.tr, background: rowBg }}>
+                  <td style={{ ...styles.td, fontWeight: 700 }}>{row.ticker}</td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{row.close?.toFixed(2)}</td>
+                  <td style={styles.td}><StepDots trendOk={row.trendOk} dipOk={row.dipOk} confirmOk={row.confirmOk} /></td>
+                  <td style={styles.td}><Pill ok={row.trendOk} /></td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{row.pullbackPct?.toFixed(1)}</td>
+                  <td style={styles.td}><Pill ok={row.dipOk} /></td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{row.rsi?.toFixed(1)}</td>
+                  <td style={styles.td}><Pill ok={row.confirmOk} /></td>
+                  <td style={styles.td}>{signalCell}</td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{row.buySignal ? (row.shares < 1 ? "0" : row.shares) : "—"}</td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{holding ? tracked.stopPrice?.toFixed(2) : (row.buySignal ? row.stopPrice?.toFixed(2) : "—")}</td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{holding ? tracked.targetPrice?.toFixed(2) : (row.buySignal ? round2(row.close + TARGET_R_MULT * row.stopDistance).toFixed(2) : "—")}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -2589,7 +2700,63 @@ function ScannerPage({ showToast }) {
       <div style={{ marginTop: 16, fontSize: 11, color: "#5a6b88", lineHeight: 1.6 }}>
         Rules: Trend = close above 200 &amp; 50-day EMA · Dip = 5–10% pullback, near 20-EMA, or RSI 30–40 ·
         Confirm = bullish candle with volume or RSI turning up. Position size risks {cfg.riskPct}% of balance against a 1.5× ATR(14) stop.
-        Nothing here executes trades automatically.
+        Every BUY signal below is paper-tracked automatically — target is 2× the stop distance (2R), exit is stop hit, target hit, or the trend breaking. Nothing here executes real trades.
+      </div>
+
+      <div style={{ ...styles.card, marginTop: 16, borderTop: `2px solid ${GOLD}88` }}>
+        <div style={{ ...styles.cardHeader, marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+          <div style={styles.cardTitle}>Signal Log</div>
+          <div style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace", color: "#7a8aa8" }}>
+            {positions.length} total · {openPositions.length} open · <span style={{ color: G }}>{wins} win</span> · <span style={{ color: R }}>{losses} loss</span>
+            {winRate != null ? ` · ${winRate.toFixed(0)}% win rate` : ""}
+          </div>
+        </div>
+
+        {sortedPositions.length === 0 ? (
+          <div style={{ fontSize: 12, color: "#5a6b88" }}>No signals tracked yet — this fills in automatically as the scanner runs.</div>
+        ) : (
+          <div style={{ maxHeight: 260, overflowY: "auto" }}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Ticker</th>
+                  <th style={styles.th}>Entry</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Exit</th>
+                  <th style={styles.th}>P/L %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPositions.map(p => {
+                  const cur = p.status === "OPEN" ? p.lastPrice : p.exitPrice;
+                  const pl = cur != null ? round2(((cur - p.entryPrice) / p.entryPrice) * 100) : null;
+                  const color = p.status === "WIN" ? G : p.status === "LOSS" ? R : GOLD;
+                  return (
+                    <tr key={p.id} style={styles.tr}>
+                      <td style={{ ...styles.td, fontWeight: 700 }}>{p.ticker}</td>
+                      <td style={{ ...styles.td, ...styles.tdMono }}>
+                        ${p.entryPrice?.toFixed(2)}
+                        <div style={{ fontSize: 10, color: "#5a6b88" }}>{new Date(p.entryAt).toLocaleString()}</div>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={{ ...styles.dirBadge, background: color + "33", color }}>
+                          {p.status === "OPEN" ? "● OPEN" : p.status === "WIN" ? "✓ WIN" : "✕ LOSS"}
+                        </span>
+                        {p.exitReason ? <div style={{ fontSize: 10, color: "#5a6b88", marginTop: 2 }}>{p.exitReason}</div> : null}
+                      </td>
+                      <td style={{ ...styles.td, ...styles.tdMono }}>
+                        {p.status === "OPEN" ? "—" : `$${p.exitPrice?.toFixed(2)}`}
+                      </td>
+                      <td style={{ ...styles.td, ...styles.tdMono, color: pl > 0 ? G : pl < 0 ? R : undefined }}>
+                        {pl != null ? `${pl > 0 ? "+" : ""}${pl.toFixed(1)}%` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
