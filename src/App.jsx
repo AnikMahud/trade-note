@@ -2669,7 +2669,7 @@ function ScannerPage({ showToast }) {
               } else if (holding) {
                 signalCell = (
                   <span style={{ ...styles.dirBadge, background: GOLD + "33", color: GOLD }}>
-                    ● HOLD (buy ${tracked.entryPrice?.toFixed(2)})
+                    ● HOLD (buy ${tracked.entryPrice?.toFixed(2)}){tracked.beActive ? " 🛡 BE" : ""}
                   </span>
                 );
               } else if (row.buySignal) {
@@ -2716,7 +2716,7 @@ function ScannerPage({ showToast }) {
       <div style={{ marginTop: 16, fontSize: 11, color: "#5a6b88", lineHeight: 1.6 }}>
         Rules: Trend = close above 200 &amp; 50-day EMA · Dip = 5–10% pullback, near 20-EMA, or RSI 30–40 ·
         Confirm = bullish candle with volume or RSI turning up. Position size risks {cfg.riskPct}% of balance against a 1.5× ATR(14) stop.
-        Every BUY signal below is paper-tracked automatically — target is 2× the stop distance (2R), exit is stop hit, target hit, or the trend breaking. Nothing here executes real trades.
+        Every BUY signal below is paper-tracked automatically — target is 2× the stop distance (2R). Once a trade is up 1R, the stop moves to breakeven (🛡 BE) so it can no longer close as a loss. Exit is stop hit, target hit, or the trend breaking. Nothing here executes real trades.
       </div>
 
       <div style={{ ...styles.card, marginTop: 16, borderTop: `2px solid ${GOLD}88` }}>
@@ -2757,8 +2757,14 @@ function ScannerPage({ showToast }) {
                       <td style={styles.td}>
                         <span style={{ ...styles.dirBadge, background: color + "33", color }}>
                           {p.status === "OPEN" ? "● OPEN" : p.status === "WIN" ? "✓ WIN" : "✕ LOSS"}
+                          {p.status === "OPEN" && p.beActive ? " 🛡 BE" : ""}
                         </span>
                         {p.exitReason ? <div style={{ fontSize: 10, color: "#5a6b88", marginTop: 2 }}>{p.exitReason}</div> : null}
+                        {p.status === "OPEN" ? (
+                          <div style={{ fontSize: 10, color: "#5a6b88", marginTop: 2 }}>
+                            Stop: ${p.stopPrice?.toFixed(2)}{p.beActive ? " (breakeven)" : ""}
+                          </div>
+                        ) : null}
                       </td>
                       <td style={{ ...styles.td, ...styles.tdMono }}>
                         {p.status === "OPEN" ? "—" : `$${p.exitPrice?.toFixed(2)}`}
