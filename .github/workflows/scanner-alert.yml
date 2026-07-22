@@ -12,6 +12,13 @@ on:
 permissions:
   contents: write
 
+# Runs get triggered externally every 1-2 min (in addition to GitHub's own
+# schedule as a backup) — queue them instead of letting overlapping runs
+# race on committing/pushing scanner-state.json.
+concurrency:
+  group: scanner-alert
+  cancel-in-progress: false
+
 jobs:
   scan:
     runs-on: ubuntu-latest
