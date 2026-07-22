@@ -2,9 +2,11 @@ name: Dip-buy scanner alert
 
 on:
   schedule:
-    # Every 15 min, all day every day (UTC) — notify.js itself gates on
-    # actual US/Eastern market hours so DST doesn't need to be handled here.
-    - cron: "*/15 * * * *"
+    # Every 15 min, offset off the :00/:15/:30/:45 marks — those are GitHub's
+    # busiest minutes and scheduled runs there get delayed/dropped most often.
+    # notify.js itself gates on actual US/Eastern market time so DST doesn't
+    # need to be handled here.
+    - cron: "4,19,34,49 * * * *"
   workflow_dispatch: {}
 
 permissions:

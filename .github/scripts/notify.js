@@ -18,7 +18,8 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
 
 const OPEN_MIN = 9 * 60 + 30; // 9:30am ET
 const CLOSE_MIN = 16 * 60; // 4:00pm ET
-const WINDOW = 15; // minutes — matches the cron interval, catches one run per boundary
+const WINDOW = 30; // minutes — wider than the 15-min cron interval so a delayed
+// GitHub Actions run (scheduled runs aren't guaranteed to fire on time) still catches the boundary
 
 function nyTimeInfo() {
   const now = new Date();
