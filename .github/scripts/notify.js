@@ -5,6 +5,11 @@
 // message for each of those events. Runs from GitHub Actions on a
 // schedule; self-gates on actual US/Eastern market time so the cron
 // trigger doesn't need to account for DST.
+//
+// The market-open/close pings themselves are NOT sent from here — GitHub
+// Actions' schedule trigger is best-effort and was observed firing hours
+// late. Those two time-critical messages are sent by api/notify.js instead,
+// hit by an external timezone-aware cron for exact, DST-proof delivery.
 import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const SCANNER_URL = "https://trade-note-phi.vercel.app/api/scanner";
@@ -18,8 +23,6 @@ if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
 
 const OPEN_MIN = 9 * 60 + 30; // 9:30am ET
 const CLOSE_MIN = 16 * 60; // 4:00pm ET
-const WINDOW = 30; // minutes — wider than the 15-min cron interval so a delayed
-// GitHub Actions run (scheduled runs aren't guaranteed to fire on time) still catches the boundary
 
 function nyTimeInfo() {
   const now = new Date();
@@ -35,10 +38,7 @@ function nyTimeInfo() {
   const minutesNow = Number(get("hour")) * 60 + Number(get("minute"));
   return {
     isWeekday: !["Sat", "Sun"].includes(weekday),
-    minutesNow,
     inMarketHours: minutesNow >= OPEN_MIN && minutesNow < CLOSE_MIN,
-    atOpen: minutesNow >= OPEN_MIN && minutesNow < OPEN_MIN + WINDOW,
-    atClose: minutesNow >= CLOSE_MIN && minutesNow < CLOSE_MIN + WINDOW,
   };
 }
 
@@ -51,7 +51,7 @@ function round2(n) {
 }
 
 function loadState() {
-  const fresh = { date: todayNY(), openNotified: false, closeNotified: false, positions: [] };
+  const fresh = { date: todayNY(), positions: [] };
   if (!existsSync(STATE_FILE)) return fresh;
   const state = JSON.parse(readFileSync(STATE_FILE, "utf8"));
   const positions = state.positions || [];
@@ -143,18 +143,6 @@ async function main() {
   }
 
   const state = loadState();
-
-  if (time.atOpen && !state.openNotified) {
-    await sendTelegram("Market is open — dip-buy scanner is live for today.");
-    state.openNotified = true;
-    console.log("Sent market-open message.");
-  }
-
-  if (time.atClose && !state.closeNotified) {
-    await sendTelegram("Market is closed — scanning paused until tomorrow.");
-    state.closeNotified = true;
-    console.log("Sent market-close message.");
-  }
 
   if (time.inMarketHours) {
     const r = await fetch(SCANNER_URL);
