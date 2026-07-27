@@ -4,14 +4,37 @@
 // volume/RSI). Returns raw indicator values per ticker; the frontend does
 // position sizing locally so balance/risk% can change without a refetch.
 
+// Dow 30 + a hand-curated set of long-standing large/mega-cap Nasdaq-100
+// names, merged with the original watchlist and deduped — a broader, still
+// liquid/quality universe than the original 24 tickers (backtested: more
+// candidates meaningfully improved total return), without scanning the
+// full 500+ S&P names (which both risks Yahoo rate-limits and the
+// Vercel Hobby function time budget).
 const DEFAULT_WATCHLIST = [
-  "GOOGL","META","BKNG","SHOP","TSM","AMZN","MSFT","GD","ORCL","JPM",
-  "NFLX","AVGO","PLTR","AAPL","BA","AMD","HOOD","BRK-B","NVDA","LMT",
-  "TSLA","SOUN","NOK","INTC",
+  "AAPL","ABNB","ADBE","ADI","ADP","AEP","ALGN","AMAT","AMD","AMGN","AMZN",
+  "ANSS","APP","ARM","ASML","AVGO","AXP","BA","BIIB","BKNG","BRK-B","CAT",
+  "CDNS","CDW","CHTR","CMCSA","COST","CPRT","CRM","CRWD","CSCO","CSX","CTAS",
+  "CTSH","CVX","DASH","DDOG","DIS","DLTR","DXCM","EA","EBAY","ENPH","EXC",
+  "FANG","FAST","FTNT","GD","GEHC","GILD","GOOG","GOOGL","GS","HD","HON",
+  "HOOD","IBM","IDXX","ILMN","INTC","INTU","ISRG","JNJ","JPM","KDP","KLAC",
+  "KO","LMT","LRCX","LULU","MAR","MCD","MCHP","MDLZ","META","MMM","MNST",
+  "MRK","MRVL","MSFT","MU","NFLX","NKE","NOK","NVDA","NXPI","ODFL","ON",
+  "ORCL","ORLY","PANW","PAYX","PCAR","PEP","PG","PLTR","PYPL","QCOM","REGN",
+  "ROP","ROST","SBUX","SHOP","SHW","SMCI","SNPS","SOUN","TEAM","TRV","TSLA",
+  "TSM","TTWO","TXN","UNH","V","VRSK","VRTX","WBD","WDAY","WMT","XEL","ZS",
 ];
 
+// How many *new* positions the live tracker (and the backtest, for a fair
+// comparison) will open per calendar day, even if more tickers qualify.
+// With 122 tickers instead of 24, a single broad market dip can trigger
+// dozens of signals on the same day — those are correlated bets (one bet
+// on the market bouncing), not independent ones, and a small account can't
+// safely risk 1% on each of 30+ of them at once. Ranked by deepest pullback
+// (the core "dip" signal) so the strongest setups win the slots.
+const MAX_NEW_PER_DAY = 4;
+
 const ATR_LEN = 14;
-const ATR_STOP_MULT = 1.5;
+const ATR_STOP_MULT = 2.5;
 const SWING_LOOKBACK = 20;
 const RSI_LEN = 14;
 
@@ -235,6 +258,7 @@ function evaluateSeries(rows) {
       date: rows[i].date,
       close: round2(close[i]),
       trendOk, buySignal,
+      pullbackPct: round2(pullbackPct),
       ema20: round2(ema20[i]),
       stopPrice: round2(close[i] - stopDistance),
       stopDistance: round2(stopDistance),
@@ -243,22 +267,25 @@ function evaluateSeries(rows) {
   return out;
 }
 
-// Walk-forward paper trade simulation for one ticker — Method C: hard stop
-// at entry - 1.5xATR, moved to breakeven once up 1R, then no fixed target —
-// held until price closes below the 20-EMA. Backtested against a fixed 2R
-// target and a plain EMA20 trail (no breakeven): this one had the best
-// profit factor (2.81 vs 0.86 for the fixed-target version) because it lets
-// winners run instead of capping them at 2R, while the breakeven stop still
-// protects gains once a trade is working.
-function backtestTicker(ticker, days, windowStartIdx) {
+// Walk-forward paper trade simulation across the WHOLE watchlist at once,
+// day by day (not ticker-by-ticker) — needed so the MAX_NEW_PER_DAY cap can
+// actually rank same-day candidates against each other. Exit rule is Method
+// C: hard stop at entry - 2.5xATR, moved to breakeven once up 1R, then held
+// with no fixed target until price closes below the 20-EMA.
+function backtestPortfolio(tickerData, allDates, cutoffStr, symbols) {
   const trades = [];
-  let open = null;
+  const openPositions = new Map(); // ticker -> position
 
-  for (let i = 0; i < days.length; i++) {
-    const row = days[i];
-    if (!row) continue;
+  for (const date of allDates) {
+    // 1. exits first
+    for (const ticker of [...openPositions.keys()]) {
+      const td = tickerData[ticker];
+      const idx = td.dateIndex.get(date);
+      if (idx == null) continue;
+      const row = td.days[idx];
+      if (!row) continue;
+      const open = openPositions.get(ticker);
 
-    if (open) {
       if (!open.beActive && row.close >= open.oneRLevel) {
         open.beActive = true;
         open.stopPrice = open.entryPrice;
@@ -276,10 +303,27 @@ function backtestTicker(ticker, days, windowStartIdx) {
         open.exitReason = exit.reason;
         open.returnPct = round2(((row.close - open.entryPrice) / open.entryPrice) * 100);
         trades.push(open);
-        open = null;
+        openPositions.delete(ticker);
       }
-    } else if (i >= windowStartIdx && row.buySignal) {
-      open = {
+    }
+
+    // 2. new entries — only within the requested lookback window, ranked by
+    // deepest pullback, capped at MAX_NEW_PER_DAY
+    if (date < cutoffStr) continue;
+    const candidates = [];
+    for (const ticker of symbols) {
+      if (openPositions.has(ticker)) continue;
+      const td = tickerData[ticker];
+      if (!td) continue;
+      const idx = td.dateIndex.get(date);
+      if (idx == null) continue;
+      const row = td.days[idx];
+      if (row && row.buySignal) candidates.push({ ticker, row });
+    }
+    candidates.sort((a, b) => b.row.pullbackPct - a.row.pullbackPct);
+
+    for (const { ticker, row } of candidates.slice(0, MAX_NEW_PER_DAY)) {
+      openPositions.set(ticker, {
         ticker,
         entryDate: row.date,
         entryPrice: row.close,
@@ -288,10 +332,11 @@ function backtestTicker(ticker, days, windowStartIdx) {
         beActive: false,
         status: "OPEN",
         exitDate: null, exitPrice: null, exitReason: null, returnPct: null,
-      };
+      });
     }
   }
-  if (open) trades.push(open);
+
+  for (const open of openPositions.values()) trades.push(open);
   return trades;
 }
 
@@ -305,17 +350,27 @@ async function runBacktest(req, res, symbols) {
     symbols.map(async (sym) => {
       const rows = await fetchHistory2y(sym);
       const days = evaluateSeries(rows);
-      const windowStartIdx = rows.findIndex(r => r.date >= cutoffStr);
-      return backtestTicker(sym, days, windowStartIdx < 0 ? days.length : windowStartIdx);
+      const dateIndex = new Map();
+      rows.forEach((r, i) => dateIndex.set(r.date, i));
+      return { sym, rows, days, dateIndex };
     })
   );
 
-  const trades = [];
+  const tickerData = {};
   const errors = [];
+  const allDatesSet = new Set();
   settled.forEach((s, idx) => {
-    if (s.status === "fulfilled") trades.push(...s.value);
-    else errors.push({ ticker: symbols[idx], error: s.reason?.message || "failed" });
+    if (s.status === "fulfilled") {
+      const { sym, rows, days, dateIndex } = s.value;
+      tickerData[sym] = { days, dateIndex };
+      rows.forEach(r => allDatesSet.add(r.date));
+    } else {
+      errors.push({ ticker: symbols[idx], error: s.reason?.message || "failed" });
+    }
   });
+  const allDates = [...allDatesSet].sort();
+
+  const trades = backtestPortfolio(tickerData, allDates, cutoffStr, symbols);
 
   trades.sort((a, b) => (a.entryDate < b.entryDate ? 1 : -1));
 

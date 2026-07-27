@@ -2703,8 +2703,8 @@ function ScannerPage({ showToast }) {
 
       <div style={{ marginTop: 16, fontSize: 11, color: "#5a6b88", lineHeight: 1.6 }}>
         Rules: Trend = close above 200 &amp; 50-day EMA · Dip = 5–10% pullback, near 20-EMA, or RSI 30–40 ·
-        Confirm = bullish candle with volume or RSI turning up. Position size risks {cfg.riskPct}% of balance against a 1.5× ATR(14) stop.
-        Every BUY signal below is paper-tracked automatically — no fixed target, held until close breaks below the 20-EMA so winners can run. Once a trade is up 1R, the stop moves to breakeven (🛡 BE) so it can no longer close as a loss. Exit is stop hit or close below the 20-EMA. Nothing here executes real trades.
+        Confirm = bullish candle with volume or RSI turning up. Position size risks {cfg.riskPct}% of balance against a 2.5× ATR(14) stop.
+        Every BUY signal below is paper-tracked automatically — no fixed target, held until close breaks below the 20-EMA so winners can run. Once a trade is up 1R, the stop moves to breakeven (🛡 BE) so it can no longer close as a loss. Exit is stop hit or close below the 20-EMA. Watchlist covers 122 liquid large-caps; only the 4 deepest-pullback signals per day are actually taken (same-day signals are usually correlated, not independent bets). Nothing here executes real trades.
       </div>
 
       <div style={{ ...styles.card, marginTop: 16, borderTop: `2px solid ${GOLD}88` }}>

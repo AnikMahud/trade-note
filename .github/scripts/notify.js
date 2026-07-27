@@ -17,6 +17,12 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const SCANNER_URL = "https://trade-note-phi.vercel.app/api/scanner";
 const STATE_FILE = new URL("../scanner-state.json", import.meta.url);
+// Must match MAX_NEW_PER_DAY in api/scanner.js's backtest — keeps the live
+// tracker and the backtest comparable. With 122 watchlist tickers, a broad
+// market dip can trigger dozens of signals the same day; those are
+// correlated (one bet on the market bouncing), not independent, so only the
+// top N by deepest pullback get taken each day.
+const MAX_NEW_PER_DAY = 4;
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = process.env;
 if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
@@ -79,7 +85,10 @@ function reconcilePositions(positions, results) {
   });
   const messages = [];
   const nowIso = new Date().toISOString();
+  const today = todayNY();
 
+  // 1. update/close existing open positions
+  const candidates = [];
   results.forEach((row) => {
     const idx = openIdx.get(row.ticker);
     if (idx != null) {
@@ -116,25 +125,34 @@ function reconcilePositions(positions, results) {
         next[idx] = { ...pos, lastPrice: row.close, lastCheckedAt: nowIso, stopPrice, beActive };
       }
     } else if (row.buySignal) {
-      next.push({
-        id: `${row.ticker}-${nowIso}`,
-        ticker: row.ticker,
-        entryPrice: row.close,
-        entryAt: nowIso,
-        stopPrice: row.stopPrice,
-        oneRLevel: round2(row.close + row.stopDistance),
-        beActive: false,
-        status: "OPEN",
-        exitPrice: null, exitAt: null, exitReason: null,
-        lastPrice: row.close, lastCheckedAt: nowIso,
-      });
-      messages.push({
-        text:
-          `BUY: ${row.ticker} @ $${row.close}\n` +
-          `Stop: $${row.stopPrice} (trailing below 20-EMA, no fixed target)\n` +
-          `Pullback: ${row.pullbackPct}% | RSI: ${row.rsi}`,
-      });
+      candidates.push(row);
     }
+  });
+
+  // 2. new entries — ranked by deepest pullback, capped per calendar day
+  const openedToday = next.filter((p) => (p.entryAt || "").startsWith(today)).length;
+  const slotsLeft = Math.max(0, MAX_NEW_PER_DAY - openedToday);
+  candidates.sort((a, b) => b.pullbackPct - a.pullbackPct);
+
+  candidates.slice(0, slotsLeft).forEach((row) => {
+    next.push({
+      id: `${row.ticker}-${nowIso}`,
+      ticker: row.ticker,
+      entryPrice: row.close,
+      entryAt: nowIso,
+      stopPrice: row.stopPrice,
+      oneRLevel: round2(row.close + row.stopDistance),
+      beActive: false,
+      status: "OPEN",
+      exitPrice: null, exitAt: null, exitReason: null,
+      lastPrice: row.close, lastCheckedAt: nowIso,
+    });
+    messages.push({
+      text:
+        `BUY: ${row.ticker} @ $${row.close}\n` +
+        `Stop: $${row.stopPrice} (trailing below 20-EMA, no fixed target)\n` +
+        `Pullback: ${row.pullbackPct}% | RSI: ${row.rsi}`,
+    });
   });
 
   const capped = next.length > 200 ? next.slice(next.length - 200) : next;
