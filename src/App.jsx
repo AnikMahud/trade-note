@@ -2465,6 +2465,7 @@ function ScannerPage({ showToast }) {
   const [positions, setPositions] = useState(() => {
     try { return JSON.parse(localStorage.getItem(POS_KEY) || "[]"); } catch { return []; }
   });
+  const [positionsSyncedAt, setPositionsSyncedAt] = useState(null);
   const prevOpenTickers = useRef(new Set(positions.filter(p => p.status === "OPEN").map(p => p.ticker)));
 
   const saveCfg = (next) => {
@@ -2474,7 +2475,7 @@ function ScannerPage({ showToast }) {
 
   const fetchPositions = async () => {
     try {
-      const r = await fetch("/api/scanner-positions");
+      const r = await fetch("/api/scanner-positions", { cache: "no-store" });
       const j = await r.json().catch(() => ({ error: String(r.status) }));
       if (!r.ok) throw new Error(j.error || String(r.status));
       const fresh = j.positions || [];
@@ -2491,16 +2492,17 @@ function ScannerPage({ showToast }) {
       prevOpenTickers.current = nowOpen;
 
       setPositions(fresh);
+      setPositionsSyncedAt(new Date().toISOString());
       try { localStorage.setItem(POS_KEY, JSON.stringify(fresh)); } catch {}
-    } catch {
-      // keep showing last-known (cached) positions if the shared state can't be reached
+    } catch (e) {
+      showToast("Position sync failed: " + (e.message || "unknown"), "err");
     }
   };
 
   const runScan = async (silent = false, auto = false) => {
     if (silent) setRefreshing(true); else setLoading(true);
     try {
-      const r = await fetch("/api/scanner");
+      const r = await fetch("/api/scanner", { cache: "no-store" });
       const j = await r.json().catch(() => ({ error: String(r.status) }));
       if (!r.ok) throw new Error(j.error || String(r.status));
       setResults(j.results || []);
@@ -2687,6 +2689,9 @@ function ScannerPage({ showToast }) {
           <div style={{ fontSize: 11, fontFamily: "'JetBrains Mono',monospace", color: "#7a8aa8" }}>
             {positions.length} total · {openPositions.length} open · <span style={{ color: G }}>{wins} win</span> · <span style={{ color: R }}>{losses} loss</span>
             {winRate != null ? ` · ${winRate.toFixed(0)}% win rate` : ""}
+            <div style={{ marginTop: 2, color: positionsSyncedAt ? "#4a5a78" : R }}>
+              {positionsSyncedAt ? `synced ${new Date(positionsSyncedAt).toLocaleTimeString()} (shared, same on every device)` : "not synced — showing cached local data"}
+            </div>
           </div>
         </div>
 
