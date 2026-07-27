@@ -2537,7 +2537,7 @@ function ScannerPage({ showToast }) {
     setBacktestLoading(true);
     setBacktestError(null);
     try {
-      const r = await fetch(`/api/scanner-backtest?months=${months}`, { cache: "no-store" });
+      const r = await fetch(`/api/scanner?months=${months}`, { cache: "no-store" });
       const j = await r.json().catch(() => ({ error: String(r.status) }));
       if (!r.ok) throw new Error(j.error || String(r.status));
       setBacktestResult(j);
