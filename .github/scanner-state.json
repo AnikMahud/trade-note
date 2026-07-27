@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 190.91,
-      "lastCheckedAt": "2026-07-27T19:28:10.882Z"
+      "lastPrice": 190.9,
+      "lastCheckedAt": "2026-07-27T19:30:23.459Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 177.08,
-      "lastCheckedAt": "2026-07-27T19:28:10.882Z"
+      "lastPrice": 177.25,
+      "lastCheckedAt": "2026-07-27T19:30:23.459Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 47.22,
-      "lastCheckedAt": "2026-07-27T19:28:10.882Z"
+      "lastPrice": 47.17,
+      "lastCheckedAt": "2026-07-27T19:30:23.459Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 244.66,
-      "lastCheckedAt": "2026-07-27T19:28:10.882Z"
+      "lastPrice": 244.58,
+      "lastCheckedAt": "2026-07-27T19:30:23.459Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 267.07,
-      "lastCheckedAt": "2026-07-27T19:28:10.882Z"
+      "lastPrice": 267.06,
+      "lastCheckedAt": "2026-07-27T19:30:23.459Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -90,6 +90,21 @@
       "exitReason": "Below 20-EMA",
       "lastPrice": 336.02,
       "lastCheckedAt": "2026-07-27T19:24:17.243Z"
+    },
+    {
+      "id": "AXP-2026-07-27T19:30:23.459Z",
+      "ticker": "AXP",
+      "entryPrice": 336.09,
+      "entryAt": "2026-07-27T19:30:23.459Z",
+      "stopPrice": 311.76,
+      "oneRLevel": 360.42,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 336.09,
+      "lastCheckedAt": "2026-07-27T19:30:23.459Z"
     }
   ]
 }
