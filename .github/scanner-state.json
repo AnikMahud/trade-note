@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 190.58,
-      "lastCheckedAt": "2026-07-27T19:20:18.172Z"
+      "lastPrice": 190.87,
+      "lastCheckedAt": "2026-07-27T19:22:16.222Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 176.91,
-      "lastCheckedAt": "2026-07-27T19:20:18.172Z"
+      "lastPrice": 176.93,
+      "lastCheckedAt": "2026-07-27T19:22:16.222Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 47.26,
-      "lastCheckedAt": "2026-07-27T19:20:18.172Z"
+      "lastPrice": 47.23,
+      "lastCheckedAt": "2026-07-27T19:22:16.222Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 244.67,
-      "lastCheckedAt": "2026-07-27T19:20:18.172Z"
+      "lastPrice": 244.54,
+      "lastCheckedAt": "2026-07-27T19:22:16.222Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,23 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 266.87,
-      "lastCheckedAt": "2026-07-27T19:20:18.172Z"
+      "lastPrice": 266.83,
+      "lastCheckedAt": "2026-07-27T19:22:16.222Z"
+    },
+    {
+      "id": "AXP-2026-07-27T19:22:16.222Z",
+      "ticker": "AXP",
+      "entryPrice": 336.08,
+      "entryAt": "2026-07-27T19:22:16.222Z",
+      "stopPrice": 311.75,
+      "oneRLevel": 360.41,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 336.08,
+      "lastCheckedAt": "2026-07-27T19:22:16.222Z"
     }
   ]
 }
