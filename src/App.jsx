@@ -2523,6 +2523,31 @@ function ScannerPage({ showToast }) {
     return () => clearInterval(id);
   }, []);
 
+  // Historical performance report — replays the same rules over real past
+  // prices so "how many signals in the last 6mo/1yr, win rate" can be
+  // answered directly, instead of waiting for the live tracker to accumulate
+  // that much history.
+  const [backtestMonths, setBacktestMonths] = useState(6);
+  const [backtestLoading, setBacktestLoading] = useState(false);
+  const [backtestResult, setBacktestResult] = useState(null);
+  const [backtestError, setBacktestError] = useState(null);
+
+  const runBacktest = async (months) => {
+    setBacktestMonths(months);
+    setBacktestLoading(true);
+    setBacktestError(null);
+    try {
+      const r = await fetch(`/api/scanner-backtest?months=${months}`, { cache: "no-store" });
+      const j = await r.json().catch(() => ({ error: String(r.status) }));
+      if (!r.ok) throw new Error(j.error || String(r.status));
+      setBacktestResult(j);
+    } catch (e) {
+      setBacktestError(e.message || "backtest failed");
+    } finally {
+      setBacktestLoading(false);
+    }
+  };
+
   const riskAmount = (Number(cfg.balance) || 0) * (Number(cfg.riskPct) || 0) / 100;
 
   const withSizing = results.map(row => {
@@ -2745,6 +2770,93 @@ function ScannerPage({ showToast }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      <div style={{ ...styles.card, marginTop: 16, borderTop: `2px solid ${GOLD}88` }}>
+        <div style={{ ...styles.cardHeader, marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <div style={styles.cardTitle}>Backtest</div>
+            <div style={{ fontSize: 11, color: "#5a6b88", marginTop: 4 }}>
+              Replays these same rules over real historical prices — how many signals, how many won/lost.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={() => runBacktest(6)}
+              disabled={backtestLoading}
+              style={{ ...styles.ghostBtn, opacity: backtestLoading ? 0.6 : 1, ...(backtestResult?.months === 6 ? { borderColor: GOLD, color: GOLD } : {}) }}
+            >6 Months</button>
+            <button
+              onClick={() => runBacktest(12)}
+              disabled={backtestLoading}
+              style={{ ...styles.ghostBtn, opacity: backtestLoading ? 0.6 : 1, ...(backtestResult?.months === 12 ? { borderColor: GOLD, color: GOLD } : {}) }}
+            >1 Year</button>
+          </div>
+        </div>
+
+        {backtestLoading && (
+          <div style={{ fontSize: 12, color: "#5a6b88" }}>Running backtest over {backtestMonths} months of history for the full watchlist — this takes a bit…</div>
+        )}
+        {!backtestLoading && backtestError && (
+          <div style={{ fontSize: 12, color: R }}>Backtest failed: {backtestError}</div>
+        )}
+        {!backtestLoading && !backtestError && !backtestResult && (
+          <div style={{ fontSize: 12, color: "#5a6b88" }}>Pick a period above to see historical signal count and win rate.</div>
+        )}
+        {!backtestLoading && !backtestError && backtestResult && (
+          <>
+            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono',monospace", color: "#7a8aa8", marginBottom: 10 }}>
+              {backtestResult.totalSignals} signal{backtestResult.totalSignals === 1 ? "" : "s"} in last {backtestResult.months === 12 ? "year" : "6 months"} ·{" "}
+              <span style={{ color: G }}>{backtestResult.wins} win</span> · <span style={{ color: R }}>{backtestResult.losses} loss</span>
+              {backtestResult.stillOpen > 0 ? ` · ${backtestResult.stillOpen} still open` : ""}
+              {backtestResult.winRate != null ? ` · ${backtestResult.winRate.toFixed(0)}% win rate` : ""}
+              {backtestResult.avgReturnPct != null ? ` · avg ${backtestResult.avgReturnPct > 0 ? "+" : ""}${backtestResult.avgReturnPct.toFixed(1)}% per closed trade` : ""}
+            </div>
+            {backtestResult.trades.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#5a6b88" }}>No signals fired for any watchlist ticker in this window.</div>
+            ) : (
+              <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Ticker</th>
+                      <th style={styles.th}>Entry</th>
+                      <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Exit</th>
+                      <th style={styles.th}>P/L %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backtestResult.trades.map((t, idx) => {
+                      const color = t.status === "WIN" ? G : t.status === "LOSS" ? R : GOLD;
+                      return (
+                        <tr key={`${t.ticker}-${t.entryDate}-${idx}`} style={styles.tr}>
+                          <td style={{ ...styles.td, fontWeight: 700 }}>{t.ticker}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono }}>
+                            ${t.entryPrice?.toFixed(2)}
+                            <div style={{ fontSize: 10, color: "#5a6b88" }}>{t.entryDate}</div>
+                          </td>
+                          <td style={styles.td}>
+                            <span style={{ ...styles.dirBadge, background: color + "33", color }}>
+                              {t.status === "OPEN" ? "● OPEN" : t.status === "WIN" ? "✓ WIN" : "✕ LOSS"}
+                            </span>
+                            {t.exitReason ? <div style={{ fontSize: 10, color: "#5a6b88", marginTop: 2 }}>{t.exitReason}</div> : null}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono }}>
+                            {t.status === "OPEN" ? "—" : (<>${t.exitPrice?.toFixed(2)}<div style={{ fontSize: 10, color: "#5a6b88" }}>{t.exitDate}</div></>)}
+                          </td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: t.returnPct > 0 ? G : t.returnPct < 0 ? R : undefined }}>
+                            {t.returnPct != null ? `${t.returnPct > 0 ? "+" : ""}${t.returnPct.toFixed(1)}%` : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
