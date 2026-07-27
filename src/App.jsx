@@ -2458,80 +2458,43 @@ function ScannerPage({ showToast }) {
       return { balance: saved.balance ?? 1550, riskPct: saved.riskPct ?? 1 };
     } catch { return { balance: 1550, riskPct: 1 }; }
   });
+  // Positions are tracked server-side (.github/scripts/notify.js, same source as the
+  // Telegram alerts) so every browser/device shows the identical Signal Log instead of
+  // each browser building its own local simulation. localStorage here is just a
+  // read-through cache for instant paint before the first fetch resolves.
   const [positions, setPositions] = useState(() => {
     try { return JSON.parse(localStorage.getItem(POS_KEY) || "[]"); } catch { return []; }
   });
-  const positionsRef = useRef(positions);
+  const prevOpenTickers = useRef(new Set(positions.filter(p => p.status === "OPEN").map(p => p.ticker)));
 
   const saveCfg = (next) => {
     setCfg(next);
     try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch {}
   };
 
-  // Paper-tracks every BUY signal automatically: opens a position at the signal price,
-  // then closes it (WIN/LOSS) once price hits the target, the stop, or the trend breaks.
-  // Runs on every scan (manual or auto) — no manual buy/sell action needed.
-  const reconcilePositions = (freshResults) => {
-    const prev = positionsRef.current;
-    const next = prev.map(p => ({ ...p }));
-    const openIdx = new Map();
-    next.forEach((p, i) => { if (p.status === "OPEN") openIdx.set(p.ticker, i); });
-    const nowIso = new Date().toISOString();
-    const notices = [];
+  const fetchPositions = async () => {
+    try {
+      const r = await fetch("/api/scanner-positions");
+      const j = await r.json().catch(() => ({ error: String(r.status) }));
+      if (!r.ok) throw new Error(j.error || String(r.status));
+      const fresh = j.positions || [];
 
-    freshResults.forEach(row => {
-      const idx = openIdx.get(row.ticker);
-      if (idx != null) {
-        const pos = next[idx];
-        // Once price has moved up 1R (the original stop distance) in our favor,
-        // raise the stop to breakeven so this trade can no longer become a loss —
-        // backtested this against the plain trailing exit: same total signal set,
-        // total return went from +214% to +262% and profit factor 1.68 -> 2.08.
-        let stopPrice = pos.stopPrice;
-        let beActive = pos.beActive;
-        if (!beActive && row.close >= pos.oneRLevel) {
-          beActive = true;
-          stopPrice = pos.entryPrice;
+      const prevOpen = prevOpenTickers.current;
+      const nowOpen = new Set(fresh.filter(p => p.status === "OPEN").map(p => p.ticker));
+      fresh.forEach(p => {
+        if (p.status === "OPEN" && !prevOpen.has(p.ticker)) {
+          showToast(`▲ BUY ${p.ticker} @ $${p.entryPrice?.toFixed(2)} — new dip-buy signal`, "ok");
+        } else if (p.status !== "OPEN" && prevOpen.has(p.ticker)) {
+          showToast(`${p.status === "WIN" ? "🟢" : "🔴"} SELL ${p.ticker} @ $${p.exitPrice?.toFixed(2)} — ${p.exitReason || ""}`, p.status === "WIN" ? "ok" : "err");
         }
+      });
+      prevOpenTickers.current = nowOpen;
 
-        let exit = null;
-        if (row.close <= stopPrice) {
-          exit = beActive
-            ? { status: "LOSS", reason: "Breakeven stop hit" }
-            : { status: "LOSS", reason: "Stop hit" };
-        } else if (row.close >= pos.targetPrice) exit = { status: "WIN", reason: "Target hit" };
-        else if (!row.trendOk) exit = { status: row.close >= pos.entryPrice ? "WIN" : "LOSS", reason: "Trend broke" };
-
-        if (exit) {
-          next[idx] = { ...pos, status: exit.status, exitPrice: row.close, exitAt: nowIso, exitReason: exit.reason, lastPrice: row.close, stopPrice, beActive };
-          notices.push({ msg: `${exit.status === "WIN" ? "🟢" : "🔴"} SELL ${row.ticker} @ $${row.close.toFixed(2)} — ${exit.reason}`, type: exit.status === "WIN" ? "ok" : "err" });
-        } else {
-          next[idx] = { ...pos, lastPrice: row.close, lastCheckedAt: nowIso, stopPrice, beActive };
-        }
-      } else if (row.buySignal) {
-        const target = round2(row.close + TARGET_R_MULT * row.stopDistance);
-        next.push({
-          id: `${row.ticker}-${nowIso}`,
-          ticker: row.ticker,
-          entryPrice: row.close,
-          entryAt: nowIso,
-          stopPrice: row.stopPrice,
-          oneRLevel: round2(row.close + row.stopDistance),
-          beActive: false,
-          targetPrice: target,
-          status: "OPEN",
-          exitPrice: null, exitAt: null, exitReason: null,
-          lastPrice: row.close, lastCheckedAt: nowIso,
-        });
-        notices.push({ msg: `▲ BUY ${row.ticker} @ $${row.close.toFixed(2)} — new dip-buy signal`, type: "ok" });
-      }
-    });
-
-    const capped = next.length > 300 ? next.slice(next.length - 300) : next;
-    positionsRef.current = capped;
-    setPositions(capped);
-    try { localStorage.setItem(POS_KEY, JSON.stringify(capped)); } catch {}
-    notices.forEach(n => showToast(n.msg, n.type));
+      setPositions(fresh);
+      try { localStorage.setItem(POS_KEY, JSON.stringify(fresh)); } catch {}
+    } catch {
+      // keep showing last-known (cached) positions if the shared state can't be reached
+    }
   };
 
   const runScan = async (silent = false, auto = false) => {
@@ -2540,11 +2503,10 @@ function ScannerPage({ showToast }) {
       const r = await fetch("/api/scanner");
       const j = await r.json().catch(() => ({ error: String(r.status) }));
       if (!r.ok) throw new Error(j.error || String(r.status));
-      const freshResults = j.results || [];
-      setResults(freshResults);
+      setResults(j.results || []);
       setErrors(j.errors || []);
       setGeneratedAt(j.generatedAt || new Date().toISOString());
-      reconcilePositions(freshResults);
+      await fetchPositions();
       if (silent && !auto) showToast("Prices refreshed ✓", "ok");
     } catch (e) {
       if (!auto) showToast("Scan failed: " + (e.message || "unknown"), "err");

@@ -76,6 +76,7 @@ function reconcilePositions(positions, results) {
     if (p.status === "OPEN") openIdx.set(p.ticker, i);
   });
   const messages = [];
+  const nowIso = new Date().toISOString();
 
   results.forEach((row) => {
     const idx = openIdx.get(row.ticker);
@@ -102,25 +103,32 @@ function reconcilePositions(positions, results) {
 
       if (exit) {
         const returnPct = round2(((row.close - pos.entryPrice) / pos.entryPrice) * 100);
-        next[idx] = { ...pos, status: exit.status, exitPrice: row.close, stopPrice, beActive };
+        next[idx] = {
+          ...pos, status: exit.status, exitPrice: row.close, exitAt: nowIso, exitReason: exit.reason,
+          lastPrice: row.close, lastCheckedAt: nowIso, stopPrice, beActive,
+        };
         messages.push({
           text:
             `${exit.status === "WIN" ? "WIN" : "LOSS"}: SELL ${row.ticker} @ $${row.close} — ${exit.reason} ` +
             `(${returnPct > 0 ? "+" : ""}${returnPct}%)`,
         });
       } else {
-        next[idx] = { ...pos, stopPrice, beActive };
+        next[idx] = { ...pos, lastPrice: row.close, lastCheckedAt: nowIso, stopPrice, beActive };
       }
     } else if (row.buySignal) {
       const target = round2(row.close + TARGET_R_MULT * row.stopDistance);
       next.push({
+        id: `${row.ticker}-${nowIso}`,
         ticker: row.ticker,
         entryPrice: row.close,
+        entryAt: nowIso,
         stopPrice: row.stopPrice,
         oneRLevel: round2(row.close + row.stopDistance),
         beActive: false,
         targetPrice: target,
         status: "OPEN",
+        exitPrice: null, exitAt: null, exitReason: null,
+        lastPrice: row.close, lastCheckedAt: nowIso,
       });
       messages.push({
         text:
