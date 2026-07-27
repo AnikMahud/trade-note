@@ -1,8 +1,11 @@
 // Polls the deployed dip-buy scanner and paper-tracks positions the same
-// way the app's Scanner page does client-side (src/App.jsx ScannerPage):
-// opens a position on a fresh buySignal, raises the stop to breakeven once
-// a trade is up 1R, and closes on stop/target/trend-break. Sends a Telegram
-// message for each of those events. Runs from GitHub Actions on a
+// way api/scanner.js's backtest does (Method C): opens a position on a
+// fresh buySignal, raises the stop to breakeven once a trade is up 1R, and
+// holds with no fixed target until price closes below the 20-EMA. Backtested
+// against a fixed 2R target and a plain EMA20 trail (no breakeven) — this
+// combo had the best profit factor (2.81 vs 0.86 for the fixed-target
+// version) since it lets winners run instead of capping them at 2R. Sends a
+// Telegram message for each position event. Runs from GitHub Actions on a
 // schedule; self-gates on actual US/Eastern market time so the cron
 // trigger doesn't need to account for DST.
 //
@@ -14,7 +17,6 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const SCANNER_URL = "https://trade-note-phi.vercel.app/api/scanner";
 const STATE_FILE = new URL("../scanner-state.json", import.meta.url);
-const TARGET_R_MULT = 2; // take-profit = entry + 2x the stop distance (2R), matches the app
 
 const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = process.env;
 if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
@@ -95,10 +97,8 @@ function reconcilePositions(positions, results) {
       let exit = null;
       if (row.close <= stopPrice) {
         exit = { status: "LOSS", reason: beActive ? "Breakeven stop hit" : "Stop hit" };
-      } else if (row.close >= pos.targetPrice) {
-        exit = { status: "WIN", reason: "Target hit" };
-      } else if (!row.trendOk) {
-        exit = { status: row.close >= pos.entryPrice ? "WIN" : "LOSS", reason: "Trend broke" };
+      } else if (row.close < row.ema20) {
+        exit = { status: row.close >= pos.entryPrice ? "WIN" : "LOSS", reason: "Below 20-EMA" };
       }
 
       if (exit) {
@@ -116,7 +116,6 @@ function reconcilePositions(positions, results) {
         next[idx] = { ...pos, lastPrice: row.close, lastCheckedAt: nowIso, stopPrice, beActive };
       }
     } else if (row.buySignal) {
-      const target = round2(row.close + TARGET_R_MULT * row.stopDistance);
       next.push({
         id: `${row.ticker}-${nowIso}`,
         ticker: row.ticker,
@@ -125,7 +124,6 @@ function reconcilePositions(positions, results) {
         stopPrice: row.stopPrice,
         oneRLevel: round2(row.close + row.stopDistance),
         beActive: false,
-        targetPrice: target,
         status: "OPEN",
         exitPrice: null, exitAt: null, exitReason: null,
         lastPrice: row.close, lastCheckedAt: nowIso,
@@ -133,7 +131,7 @@ function reconcilePositions(positions, results) {
       messages.push({
         text:
           `BUY: ${row.ticker} @ $${row.close}\n` +
-          `Stop: $${row.stopPrice} | Target: $${target}\n` +
+          `Stop: $${row.stopPrice} (trailing below 20-EMA, no fixed target)\n` +
           `Pullback: ${row.pullbackPct}% | RSI: ${row.rsi}`,
       });
     }

@@ -2444,7 +2444,6 @@ function ScannerPage({ showToast }) {
   const CFG_KEY = "tn-scanner-cfg-v1";
   const POS_KEY = "tn-scanner-positions-v1";
   const AUTO_REFRESH_MS = 5 * 60 * 1000;
-  const TARGET_R_MULT = 2; // take-profit = entry + 2x the stop distance (2R)
   const FLASH_MS = 30 * 60 * 1000; // how long a just-closed signal stays highlighted in the table
 
   const [results, setResults] = useState([]);
@@ -2637,7 +2636,7 @@ function ScannerPage({ showToast }) {
               <th style={styles.th}>Signal</th>
               <th style={styles.th}>Shares</th>
               <th style={styles.th}>Stop $</th>
-              <th style={styles.th}>Target $</th>
+              <th style={styles.th}>20-EMA</th>
             </tr>
           </thead>
           <tbody>
@@ -2688,7 +2687,7 @@ function ScannerPage({ showToast }) {
                   <td style={styles.td}>{signalCell}</td>
                   <td style={{ ...styles.td, ...styles.tdMono }}>{row.buySignal ? (row.shares < 1 ? "0" : row.shares) : "—"}</td>
                   <td style={{ ...styles.td, ...styles.tdMono }}>{holding ? tracked.stopPrice?.toFixed(2) : (row.buySignal ? row.stopPrice?.toFixed(2) : "—")}</td>
-                  <td style={{ ...styles.td, ...styles.tdMono }}>{holding ? tracked.targetPrice?.toFixed(2) : (row.buySignal ? round2(row.close + TARGET_R_MULT * row.stopDistance).toFixed(2) : "—")}</td>
+                  <td style={{ ...styles.td, ...styles.tdMono }}>{(holding || row.buySignal) ? row.ema20?.toFixed(2) : "—"}</td>
                 </tr>
               );
             })}
@@ -2705,7 +2704,7 @@ function ScannerPage({ showToast }) {
       <div style={{ marginTop: 16, fontSize: 11, color: "#5a6b88", lineHeight: 1.6 }}>
         Rules: Trend = close above 200 &amp; 50-day EMA · Dip = 5–10% pullback, near 20-EMA, or RSI 30–40 ·
         Confirm = bullish candle with volume or RSI turning up. Position size risks {cfg.riskPct}% of balance against a 1.5× ATR(14) stop.
-        Every BUY signal below is paper-tracked automatically — target is 2× the stop distance (2R). Once a trade is up 1R, the stop moves to breakeven (🛡 BE) so it can no longer close as a loss. Exit is stop hit, target hit, or the trend breaking. Nothing here executes real trades.
+        Every BUY signal below is paper-tracked automatically — no fixed target, held until close breaks below the 20-EMA so winners can run. Once a trade is up 1R, the stop moves to breakeven (🛡 BE) so it can no longer close as a loss. Exit is stop hit or close below the 20-EMA. Nothing here executes real trades.
       </div>
 
       <div style={{ ...styles.card, marginTop: 16, borderTop: `2px solid ${GOLD}88` }}>
