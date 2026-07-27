@@ -1,4 +1,80 @@
 {
   "date": "2026-07-27",
-  "positions": []
+  "positions": [
+    {
+      "id": "ILMN-2026-06-23T20:00:00.000Z",
+      "ticker": "ILMN",
+      "entryPrice": 164.93,
+      "entryAt": "2026-06-23T20:00:00.000Z",
+      "stopPrice": 164.93,
+      "oneRLevel": 182.41,
+      "beActive": true,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 190.21,
+      "lastCheckedAt": "2026-07-27T16:45:00.000Z"
+    },
+    {
+      "id": "MMM-2026-07-15T20:00:00.000Z",
+      "ticker": "MMM",
+      "entryPrice": 160.53,
+      "entryAt": "2026-07-15T20:00:00.000Z",
+      "stopPrice": 160.53,
+      "oneRLevel": 170.14,
+      "beActive": true,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 177.18,
+      "lastCheckedAt": "2026-07-27T16:45:00.000Z"
+    },
+    {
+      "id": "EXC-2026-07-22T20:00:00.000Z",
+      "ticker": "EXC",
+      "entryPrice": 46.7,
+      "entryAt": "2026-07-22T20:00:00.000Z",
+      "stopPrice": 44.09,
+      "oneRLevel": 49.31,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 47.33,
+      "lastCheckedAt": "2026-07-27T16:45:00.000Z"
+    },
+    {
+      "id": "HON-2026-07-22T20:00:00.000Z",
+      "ticker": "HON",
+      "entryPrice": 232.99,
+      "entryAt": "2026-07-22T20:00:00.000Z",
+      "stopPrice": 215.8,
+      "oneRLevel": 250.18,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 244.91,
+      "lastCheckedAt": "2026-07-27T16:45:00.000Z"
+    },
+    {
+      "id": "JNJ-2026-07-22T20:00:00.000Z",
+      "ticker": "JNJ",
+      "entryPrice": 255.63,
+      "entryAt": "2026-07-22T20:00:00.000Z",
+      "stopPrice": 239.07,
+      "oneRLevel": 272.19,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 267.05,
+      "lastCheckedAt": "2026-07-27T16:45:00.000Z"
+    }
+  ]
 }
