@@ -14,7 +14,7 @@
       "exitAt": null,
       "exitReason": null,
       "lastPrice": 190.78,
-      "lastCheckedAt": "2026-07-27T19:36:18.495Z"
+      "lastCheckedAt": "2026-07-27T19:38:19.448Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 177.31,
-      "lastCheckedAt": "2026-07-27T19:36:18.495Z"
+      "lastPrice": 177.33,
+      "lastCheckedAt": "2026-07-27T19:38:19.448Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 47.18,
-      "lastCheckedAt": "2026-07-27T19:36:18.495Z"
+      "lastPrice": 47.19,
+      "lastCheckedAt": "2026-07-27T19:38:19.448Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 244.67,
-      "lastCheckedAt": "2026-07-27T19:36:18.495Z"
+      "lastPrice": 244.74,
+      "lastCheckedAt": "2026-07-27T19:38:19.448Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 267.02,
-      "lastCheckedAt": "2026-07-27T19:36:18.495Z"
+      "lastPrice": 266.79,
+      "lastCheckedAt": "2026-07-27T19:38:19.448Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -120,6 +120,21 @@
       "exitReason": "Below 20-EMA",
       "lastPrice": 336.31,
       "lastCheckedAt": "2026-07-27T19:36:18.495Z"
+    },
+    {
+      "id": "AXP-2026-07-27T19:38:19.448Z",
+      "ticker": "AXP",
+      "entryPrice": 336.29,
+      "entryAt": "2026-07-27T19:38:19.448Z",
+      "stopPrice": 311.88,
+      "oneRLevel": 360.7,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 336.29,
+      "lastCheckedAt": "2026-07-27T19:38:19.448Z"
     }
   ]
 }
