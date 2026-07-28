@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 193.07,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 193.05,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 181.93,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 182.19,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 47.37,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 47.33,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 247.47,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 247.09,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 266.43,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 266.52,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -148,8 +148,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 149.34,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 149.53,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     },
     {
       "id": "BA-2026-07-28T16:06:13.797Z",
@@ -163,8 +163,23 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 222.9,
-      "lastCheckedAt": "2026-07-28T19:56:14.647Z"
+      "lastPrice": 222.4,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
+    },
+    {
+      "id": "CSCO-2026-07-28T19:58:08.321Z",
+      "ticker": "CSCO",
+      "entryPrice": 115.51,
+      "entryAt": "2026-07-28T19:58:08.321Z",
+      "stopPrice": 105.96,
+      "oneRLevel": 125.07,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 115.51,
+      "lastCheckedAt": "2026-07-28T19:58:08.321Z"
     }
   ]
 }
