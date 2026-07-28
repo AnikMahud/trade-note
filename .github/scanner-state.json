@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 192.78,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastPrice": 192.97,
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 183.72,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastPrice": 183.74,
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 47.76,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastPrice": 47.77,
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 248.39,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastPrice": 248.1,
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -74,7 +74,7 @@
       "exitAt": null,
       "exitReason": null,
       "lastPrice": 269.1,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -148,8 +148,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 151.46,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastPrice": 151.38,
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     },
     {
       "id": "BA-2026-07-28T16:06:13.797Z",
@@ -163,8 +163,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 222.53,
-      "lastCheckedAt": "2026-07-28T16:34:09.946Z"
+      "lastPrice": 222.86,
+      "lastCheckedAt": "2026-07-28T16:36:10.109Z"
     }
   ]
 }
