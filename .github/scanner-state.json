@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 195.21,
-      "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+      "lastPrice": 195.08,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 178.6,
-      "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+      "lastPrice": 178.79,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 243.3,
-      "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+      "lastPrice": 242.75,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 265.76,
-      "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+      "lastPrice": 265.63,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -193,8 +193,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 250.25,
-      "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+      "lastPrice": 249.97,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     },
     {
       "id": "BIIB-2026-07-29T13:30:17.417Z",
@@ -208,8 +208,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 208.38,
-      "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+      "lastPrice": 208.56,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     },
     {
       "id": "FTNT-2026-07-29T19:16:13.034Z",
@@ -225,6 +225,21 @@
       "exitReason": "Below 20-EMA",
       "lastPrice": 153.9,
       "lastCheckedAt": "2026-07-29T19:18:10.470Z"
+    },
+    {
+      "id": "FTNT-2026-07-29T19:20:16.259Z",
+      "ticker": "FTNT",
+      "entryPrice": 153.82,
+      "entryAt": "2026-07-29T19:20:16.259Z",
+      "stopPrice": 137.69,
+      "oneRLevel": 169.95,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 153.82,
+      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
     }
   ]
 }
