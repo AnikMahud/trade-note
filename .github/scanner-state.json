@@ -14,7 +14,7 @@
       "exitAt": null,
       "exitReason": null,
       "lastPrice": 195.46,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 179.52,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastPrice": 179.59,
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 46.83,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastPrice": 46.78,
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 245.22,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastPrice": 244.99,
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 266.1,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastPrice": 266.23,
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -193,8 +193,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 249.63,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastPrice": 250.23,
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     },
     {
       "id": "BIIB-2026-07-29T13:30:17.417Z",
@@ -208,8 +208,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 206.27,
-      "lastCheckedAt": "2026-07-29T18:50:27.508Z"
+      "lastPrice": 206.85,
+      "lastCheckedAt": "2026-07-29T18:52:10.825Z"
     }
   ]
 }
