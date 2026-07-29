@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 192.22,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 192.29,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 179.33,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 179.49,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -43,8 +43,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 47.07,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 47.08,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     },
     {
       "id": "HON-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 242.07,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 242.35,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 267.39,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 267.23,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -193,8 +193,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 247.6,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 247.65,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     },
     {
       "id": "BIIB-2026-07-29T13:30:17.417Z",
@@ -208,8 +208,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 209.43,
-      "lastCheckedAt": "2026-07-29T17:26:16.911Z"
+      "lastPrice": 209.49,
+      "lastCheckedAt": "2026-07-29T17:28:11.596Z"
     }
   ]
 }
