@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 195.54,
-      "lastCheckedAt": "2026-07-29T19:14:22.299Z"
+      "lastPrice": 195.62,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 178.43,
-      "lastCheckedAt": "2026-07-29T19:14:22.299Z"
+      "lastPrice": 178.8,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 243.16,
-      "lastCheckedAt": "2026-07-29T19:14:22.299Z"
+      "lastPrice": 243.68,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 265.53,
-      "lastCheckedAt": "2026-07-29T19:14:22.299Z"
+      "lastPrice": 265.68,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -193,8 +193,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 250.21,
-      "lastCheckedAt": "2026-07-29T19:14:22.299Z"
+      "lastPrice": 250.55,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
     },
     {
       "id": "BIIB-2026-07-29T13:30:17.417Z",
@@ -208,8 +208,23 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 209.27,
-      "lastCheckedAt": "2026-07-29T19:14:22.299Z"
+      "lastPrice": 209.56,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
+    },
+    {
+      "id": "FTNT-2026-07-29T19:16:13.034Z",
+      "ticker": "FTNT",
+      "entryPrice": 153.25,
+      "entryAt": "2026-07-29T19:16:13.034Z",
+      "stopPrice": 137.24,
+      "oneRLevel": 169.26,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 153.25,
+      "lastCheckedAt": "2026-07-29T19:16:13.034Z"
     }
   ]
 }
