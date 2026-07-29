@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 195.08,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "lastPrice": 194.65,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 178.79,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "lastPrice": 178.72,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 242.75,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "lastPrice": 242.41,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -73,8 +73,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 265.63,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "lastPrice": 265.84,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -193,8 +193,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 249.97,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "lastPrice": 249.88,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     },
     {
       "id": "BIIB-2026-07-29T13:30:17.417Z",
@@ -208,8 +208,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 208.56,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "lastPrice": 208,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     },
     {
       "id": "FTNT-2026-07-29T19:16:13.034Z",
@@ -234,12 +234,12 @@
       "stopPrice": 137.69,
       "oneRLevel": 169.95,
       "beActive": false,
-      "status": "OPEN",
-      "exitPrice": null,
-      "exitAt": null,
-      "exitReason": null,
-      "lastPrice": 153.82,
-      "lastCheckedAt": "2026-07-29T19:20:16.259Z"
+      "status": "LOSS",
+      "exitPrice": 152.72,
+      "exitAt": "2026-07-29T19:22:10.304Z",
+      "exitReason": "Below 20-EMA",
+      "lastPrice": 152.72,
+      "lastCheckedAt": "2026-07-29T19:22:10.304Z"
     }
   ]
 }
