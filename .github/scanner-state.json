@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 196.62,
-      "lastCheckedAt": "2026-07-30T13:46:20.897Z"
+      "lastPrice": 196.58,
+      "lastCheckedAt": "2026-07-30T13:48:19.559Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 175.77,
-      "lastCheckedAt": "2026-07-30T13:46:20.897Z"
+      "lastPrice": 175.58,
+      "lastCheckedAt": "2026-07-30T13:48:19.559Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 239.16,
-      "lastCheckedAt": "2026-07-30T13:46:20.897Z"
+      "lastPrice": 239.12,
+      "lastCheckedAt": "2026-07-30T13:48:19.559Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -69,12 +69,12 @@
       "stopPrice": 255.63,
       "oneRLevel": 272.19,
       "beActive": true,
-      "status": "OPEN",
-      "exitPrice": null,
-      "exitAt": null,
-      "exitReason": null,
-      "lastPrice": 256.63,
-      "lastCheckedAt": "2026-07-30T13:46:20.897Z"
+      "status": "WIN",
+      "exitPrice": 256.36,
+      "exitAt": "2026-07-30T13:48:19.559Z",
+      "exitReason": "Below 20-EMA",
+      "lastPrice": 256.36,
+      "lastCheckedAt": "2026-07-30T13:48:19.559Z"
     },
     {
       "id": "AXP-2026-07-27T19:22:16.222Z",
@@ -193,8 +193,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 244.71,
-      "lastCheckedAt": "2026-07-30T13:46:20.897Z"
+      "lastPrice": 244.98,
+      "lastCheckedAt": "2026-07-30T13:48:19.559Z"
     },
     {
       "id": "BIIB-2026-07-29T13:30:17.417Z",
@@ -208,8 +208,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 206.9,
-      "lastCheckedAt": "2026-07-30T13:46:20.897Z"
+      "lastPrice": 206.43,
+      "lastCheckedAt": "2026-07-30T13:48:19.559Z"
     },
     {
       "id": "FTNT-2026-07-29T19:16:13.034Z",
