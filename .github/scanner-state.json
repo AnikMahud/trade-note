@@ -13,8 +13,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 198.12,
-      "lastCheckedAt": "2026-07-31T14:12:12.418Z"
+      "lastPrice": 196.67,
+      "lastCheckedAt": "2026-07-31T14:14:10.266Z"
     },
     {
       "id": "MMM-2026-07-15T20:00:00.000Z",
@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 175.1,
-      "lastCheckedAt": "2026-07-31T14:12:12.418Z"
+      "lastPrice": 175.27,
+      "lastCheckedAt": "2026-07-31T14:14:10.266Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -58,8 +58,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 239.39,
-      "lastCheckedAt": "2026-07-31T14:12:12.418Z"
+      "lastPrice": 239.63,
+      "lastCheckedAt": "2026-07-31T14:14:10.266Z"
     },
     {
       "id": "JNJ-2026-07-22T20:00:00.000Z",
@@ -204,12 +204,12 @@
       "stopPrice": 183.36,
       "oneRLevel": 227.86,
       "beActive": false,
-      "status": "OPEN",
-      "exitPrice": null,
-      "exitAt": null,
-      "exitReason": null,
-      "lastPrice": 203.6,
-      "lastCheckedAt": "2026-07-31T14:12:12.418Z"
+      "status": "LOSS",
+      "exitPrice": 203.22,
+      "exitAt": "2026-07-31T14:14:10.266Z",
+      "exitReason": "Below 20-EMA",
+      "lastPrice": 203.22,
+      "lastCheckedAt": "2026-07-31T14:14:10.266Z"
     },
     {
       "id": "FTNT-2026-07-29T19:16:13.034Z",
@@ -253,8 +253,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 209.88,
-      "lastCheckedAt": "2026-07-31T14:12:12.418Z"
+      "lastPrice": 209.9,
+      "lastCheckedAt": "2026-07-31T14:14:10.266Z"
     }
   ]
 }
