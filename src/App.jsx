@@ -239,12 +239,38 @@ function TradingJournal() {
   const [ledgerModal, setLedgerModal] = useState(null);
   const reloadLedger = async () => {
     try {
-      const r = await fetch("/api/ledger");
+      const r = await fetch("/api/ledger", { cache: "no-store" });
       if (!r.ok) throw new Error("api " + r.status);
       setLedger(await r.json());
     } catch (e) { console.warn("ledger load failed:", e); }
   };
   useEffect(() => { reloadLedger(); }, []);
+
+  // Cross-device sync: Notion is the shared source of truth, but the page only
+  // fetched it once on mount. Re-pull on an interval and whenever the tab/app
+  // regains focus so edits made on another device show up without a manual reload.
+  const [syncedAt, setSyncedAt] = useState(null);
+  const lastSyncRef = useRef(0);
+  useEffect(() => {
+    const SYNC_MIN_GAP_MS = 3000;
+    const SYNC_POLL_MS = 25000;
+    const syncNow = async () => {
+      const now = Date.now();
+      if (now - lastSyncRef.current < SYNC_MIN_GAP_MS) return;
+      lastSyncRef.current = now;
+      await Promise.all([reloadTrades(), reloadLedger()]);
+      setSyncedAt(new Date());
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") syncNow(); };
+    const id = setInterval(syncNow, SYNC_POLL_MS);
+    window.addEventListener("focus", syncNow);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", syncNow);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   const [strategyRules, setStrategyRules] = useState([]);
   const [checkedRules, setCheckedRules] = useState({});
@@ -430,6 +456,8 @@ function TradingJournal() {
               <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
               <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
                 {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
+                <span title={syncedAt?`Synced ${syncedAt.toLocaleTimeString()} — same data on every device`:"Syncing…"}
+                  style={{width:6,height:6,borderRadius:"50%",background:syncedAt?"#a5b285":"#4a5a78",flexShrink:0}}/>
                 <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
                   background:unlocked?"rgba(201,168,64,0.08)":"transparent",
                   border:`1px solid ${unlocked?GOLD+"55":"#26385a"}`,borderRadius:6,
@@ -481,6 +509,13 @@ function TradingJournal() {
             {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:pnlColor(metrics.totalPnl),fontWeight:700}}>
               {fmt$(metrics.totalPnl)}
             </span>}
+            <span title="Shared via Notion — same data on every device" style={{
+              fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:syncedAt?"#4a5a78":"#7a8aa8",
+              display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap"
+            }}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:syncedAt?"#a5b285":"#4a5a78",flexShrink:0}}/>
+              {syncedAt ? `synced ${syncedAt.toLocaleTimeString()}` : "syncing…"}
+            </span>
             <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
               background:unlocked?"rgba(201,168,64,0.08)":"transparent",
               border:`1px solid ${unlocked?GOLD+"55":"#26385a"}`,borderRadius:6,
@@ -1290,16 +1325,27 @@ function StrategyPage({ requireUnlock, showToast }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const load = async () => {
+    try {
+      const r = await fetch("/api/strategy", { cache: "no-store" });
+      if (!r.ok) throw new Error("api " + r.status);
+      const list = await r.json();
+      setItems(list);
+    } catch (e) { console.warn("strategy load failed:", e); }
+    setLoading(false);
+  };
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/api/strategy");
-        if (!r.ok) throw new Error("api " + r.status);
-        const list = await r.json();
-        setItems(list);
-      } catch (e) { console.warn("strategy load failed:", e); }
-      setLoading(false);
-    })();
+    load();
+    // Re-pull on an interval/focus so edits made on another device show up here too.
+    const id = setInterval(load, 25000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const rules = items.filter(i => i.type === "Rule").sort((a,b)=>a.order-b.order);
@@ -1572,18 +1618,29 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
 
+  const load = async () => {
+    try {
+      const r = await fetch("/api/targets", { cache: "no-store" });
+      if (!r.ok) throw new Error("api " + r.status);
+      const list = await r.json();
+      const m = {};
+      list.forEach(t => { if (t.done) m[t.step] = { done:true, completedAt:t.completedAt }; });
+      setDoneMap(m);
+    } catch (e) { console.warn("targets load failed:", e); }
+    setLoading(false);
+  };
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/api/targets");
-        if (!r.ok) throw new Error("api " + r.status);
-        const list = await r.json();
-        const m = {};
-        list.forEach(t => { if (t.done) m[t.step] = { done:true, completedAt:t.completedAt }; });
-        setDoneMap(m);
-      } catch (e) { console.warn("targets load failed:", e); }
-      setLoading(false);
-    })();
+    load();
+    // Re-pull on an interval/focus so edits made on another device show up here too.
+    const id = setInterval(load, 25000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const toggle = (step) => requireUnlock(async () => {

@@ -6,7 +6,7 @@ export const useCloud = true;
 
 export async function loadTrades() {
   try {
-    const r = await fetch("/api/trades");
+    const r = await fetch("/api/trades", { cache: "no-store" });
     if (!r.ok) throw new Error("api " + r.status);
     const list = await r.json();
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch {}
