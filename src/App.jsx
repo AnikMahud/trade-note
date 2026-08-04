@@ -1774,11 +1774,44 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     { lbl: "20×", pct: "5"   },
   ];
 
+  const MARKETS = ["Stocks", "Forex", "Commodities"];
+  const MARKET_COLORS = { Stocks: GOLD, Forex: "#7ea6c9", Commodities: "#b98d5e" };
+  const MARKET_PLACEHOLDER = {
+    Stocks: "AAPL, TSLA…",
+    Forex: "EUR/USD, GBP/JPY…",
+    Commodities: "XAU/USD (Gold), XAG/USD (Silver), WTI/USD (Oil)…",
+  };
+  const getMarket = (h) => h.market || "Stocks";
+
   const blankForm = () => ({
-    symbol: "", name: "",
+    symbol: "", name: "", market: "Stocks",
     buyDate: new Date().toISOString().slice(0, 10),
     buyPrice: "", shares: "", levPct: "100",
   });
+
+  const MarketBadge = ({ market }) => (
+    <span style={{
+      marginLeft: 6, fontSize: 8, padding: "1px 5px", borderRadius: 3,
+      fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase",
+      color: MARKET_COLORS[market], border: `1px solid ${MARKET_COLORS[market]}55`,
+      background: MARKET_COLORS[market] + "15"
+    }}>{market}</span>
+  );
+
+  // Shared market selector used in both Add form and Edit modal
+  const MarketSelector = ({ market, onChange }) => (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {MARKETS.map(m => (
+        <button key={m} onClick={() => onChange(m)} type="button" style={{
+          ...styles.toggleBtn, flex: "0 0 auto", padding: "8px 12px",
+          fontSize: 11, fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase",
+          background: market === m ? MARKET_COLORS[m] + "22" : "transparent",
+          color: market === m ? MARKET_COLORS[m] : "#5a6b88",
+          borderColor: market === m ? MARKET_COLORS[m] : "#26385a",
+        }}>{m}</button>
+      ))}
+    </div>
+  );
 
   const [holdings, setHoldings] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch { return []; }
@@ -1949,7 +1982,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     }
     const lp = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
     const h = {
-      id: String(Date.now()), symbol: sym, name: form.name || sym,
+      id: String(Date.now()), symbol: sym, name: form.name || sym, market: form.market || "Stocks",
       buyDate: form.buyDate, buyPrice: parseFloat(form.buyPrice),
       shares: parseFloat(form.shares), levPct: lp, status: "open",
     };
@@ -2093,7 +2126,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     <div>
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", fontWeight: 500, fontSize: 30, color: "#eee0bf", letterSpacing: 1, lineHeight: 1.1 }}>
-          Stock Portfolio
+          Portfolio
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 8 }}>
           <div style={{ width: 40, height: 1, background: GOLD, opacity: 0.5 }} />
@@ -2173,9 +2206,14 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>Type symbol → Lookup → fill details</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Market">
+                <MarketSelector market={form.market} onChange={m => setForm(p => ({ ...p, market: m }))}/>
+              </Field>
+            </div>
             <Field label="Symbol *">
               <div style={{ display: "flex", gap: 6 }}>
-                <input placeholder="AAPL, TSLA…" style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
+                <input placeholder={MARKET_PLACEHOLDER[form.market] || MARKET_PLACEHOLDER.Stocks} style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
                   value={form.symbol} onChange={e => setForm(p => ({ ...p, symbol: e.target.value.toUpperCase(), name: "" }))}
                   onKeyDown={e => { if (e.key === "Enter") lookup(form, setForm); }}/>
                 <button onClick={() => lookup(form, setForm)} disabled={lookingUp || !form.symbol.trim()} style={{
@@ -2187,7 +2225,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                 }}>{lookingUp ? "…" : "Lookup"}</button>
               </div>
             </Field>
-            <Field label="Company Name">
+            <Field label={form.market === "Stocks" ? "Company Name" : "Name"}>
               <input placeholder="Auto-filled on lookup" style={{ ...styles.input, color: form.name ? "#eee0bf" : undefined }}
                 value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}/>
             </Field>
@@ -2197,7 +2235,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             <Field label="Buy Price ($) *">
               <input type="number" placeholder="0.00" style={styles.input} value={form.buyPrice} onChange={e => setForm(p => ({ ...p, buyPrice: e.target.value }))}/>
             </Field>
-            <Field label="Shares *">
+            <Field label={form.market === "Stocks" ? "Shares *" : "Units *"}>
               <input type="number" placeholder="0" style={styles.input} value={form.shares} onChange={e => setForm(p => ({ ...p, shares: e.target.value }))}/>
             </Field>
             <div style={{ gridColumn: "1 / -1" }}>
@@ -2244,7 +2282,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
         <div style={styles.empty}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>📈</div>
           <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 20, color: "#eee0bf", marginBottom: 8 }}>No holdings yet</div>
-          <div style={{ color: "#5a6b88", fontSize: 13, marginBottom: 24 }}>Add your first stock to start tracking your portfolio</div>
+          <div style={{ color: "#5a6b88", fontSize: 13, marginBottom: 24 }}>Add your first stock, forex pair, or commodity to start tracking your portfolio</div>
           <button style={styles.primaryBtn} onClick={() => requireUnlock(() => setShowForm(true))}>Add First Holding</button>
         </div>
       ) : (
@@ -2279,7 +2317,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                         <tr key={h.id} style={styles.tr}
                           onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: GOLD }}>{h.symbol}</td>
+                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: GOLD, whiteSpace: "nowrap" }}>{h.symbol}<MarketBadge market={getMarket(h)}/></td>
                           <td style={{ ...styles.td, color: "#cec2a3", fontSize: 11, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
                           <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.buyDate}</td>
                           <td style={{ ...styles.td, ...styles.tdMono }}>${h.buyPrice.toFixed(2)}</td>
@@ -2315,7 +2353,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                           <td style={{ ...styles.td, textAlign: "right" }}>
                             <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                               <button title="Close / Sell position" onClick={() => requireUnlock(() => setCloseModal({ id: h.id, symbol: h.symbol, sellPrice: "", sellDate: new Date().toISOString().slice(0, 10) }))} style={{ ...iconBtn(G), fontSize: 10, padding: "3px 6px", width: "auto" }}>Sell</button>
-                              <button title="Edit" onClick={() => requireUnlock(() => setEditH({ ...h, levPct: String(getLevPct(h)), buyPrice: String(h.buyPrice), shares: String(h.shares) }))} style={iconBtn(GOLD)}>✎</button>
+                              <button title="Edit" onClick={() => requireUnlock(() => setEditH({ ...h, market: getMarket(h), levPct: String(getLevPct(h)), buyPrice: String(h.buyPrice), shares: String(h.shares) }))} style={iconBtn(GOLD)}>✎</button>
                               <button title="Remove" onClick={() => removeHolding(h.id)} style={iconBtn(R)}>×</button>
                             </div>
                           </td>
@@ -2356,8 +2394,9 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                         <tr key={h.id} style={{ ...styles.tr, opacity: 0.8 }}
                           onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: "#9caac4" }}>
+                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: "#9caac4", whiteSpace: "nowrap" }}>
                             {h.symbol}
+                            <MarketBadge market={getMarket(h)}/>
                             <span style={{ marginLeft: 6, fontSize: 9, color: "#4a5a78", fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase" }}>closed</span>
                           </td>
                           <td style={{ ...styles.td, color: "#7e8aa4", fontSize: 11, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
@@ -2444,6 +2483,11 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             <div style={{ fontFamily: "'Cormorant Garamond',serif", fontStyle: "italic", fontWeight: 500, fontSize: 22, color: "#eee0bf", marginBottom: 2 }}>Edit Holding</div>
             <div style={{ fontSize: 10, color: GOLD, fontFamily: "'JetBrains Mono',monospace", letterSpacing: 3, textTransform: "uppercase", marginBottom: 18 }}>{editH.symbol}</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <Field label="Market">
+                  <MarketSelector market={getMarket(editH)} onChange={m => setEditH(p => ({ ...p, market: m }))}/>
+                </Field>
+              </div>
               <Field label="Symbol">
                 <div style={{ display: "flex", gap: 6 }}>
                   <input style={{ ...styles.input, flex: 1, textTransform: "uppercase" }}
@@ -2457,7 +2501,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                   }}>{lookingUp ? "…" : "Lookup"}</button>
                 </div>
               </Field>
-              <Field label="Company Name">
+              <Field label={getMarket(editH) === "Stocks" ? "Company Name" : "Name"}>
                 <input style={styles.input} value={editH.name}
                   onChange={e => setEditH(p => ({ ...p, name: e.target.value }))}/>
               </Field>
@@ -2469,7 +2513,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                 <input type="number" style={styles.input} value={editH.buyPrice}
                   onChange={e => setEditH(p => ({ ...p, buyPrice: e.target.value }))}/>
               </Field>
-              <Field label="Shares">
+              <Field label={getMarket(editH) === "Stocks" ? "Shares" : "Units"}>
                 <input type="number" style={styles.input} value={editH.shares}
                   onChange={e => setEditH(p => ({ ...p, shares: e.target.value }))}/>
               </Field>
