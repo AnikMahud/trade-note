@@ -1855,6 +1855,31 @@ function LevSelector({ levPct, onChange, fullPosition }) {
   );
 }
 
+// USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD, …) quote the rate as
+// "quote-currency per 1 USD" — the unit count already IS the USD notional,
+// so unlike stocks/commodities/other forex pairs it must NOT be multiplied
+// by price to get a $ value.
+function isUsdBaseForex(market, symbol) {
+  return market === "Forex" && /^USD\/?/i.test(String(symbol || "").trim());
+}
+
+// $ notional value of a position (before leverage/margin is applied).
+function positionNotional(market, symbol, buyPrice, shares) {
+  if (isUsdBaseForex(market, symbol)) return shares;
+  return buyPrice * shares;
+}
+
+// $ gain/loss. For USD-base forex pairs the raw price delta is denominated
+// in the quote currency (e.g. JPY), so it's converted back to USD via the
+// % rate change applied to the USD notional, instead of a flat
+// price-delta × units (which would be off by roughly the exchange rate).
+function positionGainLoss(market, symbol, buyPrice, curPrice, shares) {
+  if (isUsdBaseForex(market, symbol) && buyPrice > 0) {
+    return shares * (curPrice - buyPrice) / buyPrice;
+  }
+  return (curPrice - buyPrice) * shares;
+}
+
 function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onCloseTrade }) {
   const PKEY = "tn-portfolio-v1";
 
@@ -2114,7 +2139,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     if (closedH) syncSave(closedH);
     setCloseModal(null);
     if (h && onCloseTrade) {
-      const pnl = parseFloat(((sellPrice - h.buyPrice) * h.shares).toFixed(2));
+      const pnl = parseFloat(positionGainLoss(getMarket(h), h.symbol, h.buyPrice, sellPrice, h.shares).toFixed(2));
       await onCloseTrade({
         id: Date.now(),
         date: sellDate || new Date().toISOString().slice(0, 10),
@@ -2144,8 +2169,9 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     holdings.filter(h => !h.status || h.status === "open").forEach(h => {
       const q = quotes[h.symbol];
       const lp = getLevPct(h);
-      inv += h.buyPrice * h.shares * (lp / 100);
-      if (q?.price != null) gl += (q.price - h.buyPrice) * h.shares;
+      const mkt = getMarket(h);
+      inv += positionNotional(mkt, h.symbol, h.buyPrice, h.shares) * (lp / 100);
+      if (q?.price != null) gl += positionGainLoss(mkt, h.symbol, h.buyPrice, q.price, h.shares);
     });
     const cur = inv + gl;
     const glPct = inv > 0 ? (gl / inv) * 100 : 0;
@@ -2169,8 +2195,13 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
   const lookupSym = form.symbol.trim().toUpperCase();
   const lookupQ = quotes[lookupSym];
   const formLevPct = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
-  const formFullPos = form.buyPrice && form.shares ? parseFloat(form.buyPrice) * parseFloat(form.shares) : null;
+  const formFullPos = form.buyPrice && form.shares
+    ? positionNotional(form.market, form.symbol, parseFloat(form.buyPrice), parseFloat(form.shares))
+    : null;
   const formAmt = formFullPos != null ? formFullPos * (formLevPct / 100) : null;
+  const editFullPos = editH?.buyPrice && editH?.shares
+    ? positionNotional(getMarket(editH), editH.symbol, parseFloat(editH.buyPrice), parseFloat(editH.shares))
+    : null;
 
   return (
     <div>
@@ -2358,8 +2389,9 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                       const hasPx = q.price != null;
                       const lp = getLevPct(h);
                       const levMult = lp < 100 ? (100 / lp) : 1;
-                      const amt = h.buyPrice * h.shares * (lp / 100);
-                      const gl = hasPx ? (q.price - h.buyPrice) * h.shares : 0;
+                      const mkt = getMarket(h);
+                      const amt = positionNotional(mkt, h.symbol, h.buyPrice, h.shares) * (lp / 100);
+                      const gl = hasPx ? positionGainLoss(mkt, h.symbol, h.buyPrice, q.price, h.shares) : 0;
                       const curVal = amt + (hasPx ? gl : 0);
                       const glPct = amt > 0 ? (gl / amt) * 100 : 0;
                       const c = pnlColor(gl);
@@ -2435,8 +2467,9 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                     {closedHoldings.map(h => {
                       const lp = getLevPct(h);
                       const levMult = lp < 100 ? (100 / lp) : 1;
-                      const amt = h.buyPrice * h.shares * (lp / 100);
-                      const gl = (h.sellPrice - h.buyPrice) * h.shares;
+                      const mkt = getMarket(h);
+                      const amt = positionNotional(mkt, h.symbol, h.buyPrice, h.shares) * (lp / 100);
+                      const gl = positionGainLoss(mkt, h.symbol, h.buyPrice, h.sellPrice, h.shares);
                       const realizedVal = amt + gl;
                       const glPct = amt > 0 ? (gl / amt) * 100 : 0;
                       const c = pnlColor(gl);
@@ -2570,14 +2603,14 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
               <div style={{ gridColumn: "1 / -1" }}>
                 <Field label="Leverage">
                   <LevSelector levPct={editH.levPct}
-                    fullPosition={editH.buyPrice && editH.shares ? parseFloat(editH.buyPrice) * parseFloat(editH.shares) : null}
+                    fullPosition={editFullPos}
                     onChange={v => setEditH(p => ({ ...p, levPct: v }))}/>
                 </Field>
               </div>
               <Field label="Amount Invested (Margin)">
                 <div style={{ ...styles.input, background: "#0a1220", border: "1px solid #1c2c45", color: GOLD, fontWeight: 700, cursor: "default" }}>
-                  {editH.buyPrice && editH.shares
-                    ? fmtUSD(parseFloat(editH.buyPrice) * parseFloat(editH.shares) * (Math.min(100, Math.max(0.01, parseFloat(editH.levPct) || 100)) / 100))
+                  {editFullPos != null
+                    ? fmtUSD(editFullPos * (Math.min(100, Math.max(0.01, parseFloat(editH.levPct) || 100)) / 100))
                     : <span style={{ color: "#4a5a78" }}>—</span>}
                 </div>
               </Field>
