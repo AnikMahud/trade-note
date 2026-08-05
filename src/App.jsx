@@ -1855,17 +1855,40 @@ function LevSelector({ levPct, onChange, fullPosition }) {
   );
 }
 
+// Splits a forex symbol like "AUD/JPY" or "AUDJPY" into its 3-letter base/quote
+// currency codes, or null if it isn't shaped like a currency pair.
+function parseForexPair(symbol) {
+  const m = /^([A-Z]{3})\/?([A-Z]{3})$/.exec(String(symbol || "").trim().toUpperCase());
+  return m ? { base: m[1], quote: m[2] } : null;
+}
+
 // USD-base forex pairs (USD/JPY, USD/CHF, USD/CAD, …) quote the rate as
 // "quote-currency per 1 USD" — the unit count already IS the USD notional,
 // so unlike stocks/commodities/other forex pairs it must NOT be multiplied
 // by price to get a $ value.
 function isUsdBaseForex(market, symbol) {
-  return market === "Forex" && /^USD\/?/i.test(String(symbol || "").trim());
+  return market === "Forex" && parseForexPair(symbol)?.base === "USD";
+}
+
+// Cross pairs (neither leg is USD, e.g. AUD/JPY, GBP/JPY, EUR/GBP) are
+// denominated in their base currency, not USD — converting to USD needs a
+// live base-currency→USD rate. Returns that base currency code, or null if
+// this pair doesn't need one (USD-base and USD-quote pairs convert directly).
+function crossForexBase(market, symbol) {
+  if (market !== "Forex") return null;
+  const pair = parseForexPair(symbol);
+  if (!pair || pair.base === "USD" || pair.quote === "USD") return null;
+  return pair.base;
 }
 
 // $ notional value of a position (before leverage/margin is applied).
-function positionNotional(market, symbol, buyPrice, shares) {
+// fxRates maps a base currency code (e.g. "AUD") to its live USD rate, used
+// only for cross pairs; falls back to the plain price×shares math if a rate
+// hasn't loaded yet.
+function positionNotional(market, symbol, buyPrice, shares, fxRates = {}) {
   if (isUsdBaseForex(market, symbol)) return shares;
+  const base = crossForexBase(market, symbol);
+  if (base && fxRates[base]) return shares * fxRates[base];
   return buyPrice * shares;
 }
 
@@ -1873,9 +1896,17 @@ function positionNotional(market, symbol, buyPrice, shares) {
 // in the quote currency (e.g. JPY), so it's converted back to USD via the
 // % rate change applied to the USD notional, instead of a flat
 // price-delta × units (which would be off by roughly the exchange rate).
-function positionGainLoss(market, symbol, buyPrice, curPrice, shares) {
-  if (isUsdBaseForex(market, symbol) && buyPrice > 0) {
-    return shares * (curPrice - buyPrice) / buyPrice;
+// Cross pairs use the same %-change approach, applied to the fx-converted
+// USD notional instead of raw shares.
+function positionGainLoss(market, symbol, buyPrice, curPrice, shares, fxRates = {}) {
+  if (buyPrice > 0 && market === "Forex") {
+    if (isUsdBaseForex(market, symbol)) {
+      return shares * (curPrice - buyPrice) / buyPrice;
+    }
+    const base = crossForexBase(market, symbol);
+    if (base && fxRates[base]) {
+      return shares * fxRates[base] * (curPrice - buyPrice) / buyPrice;
+    }
   }
   return (curPrice - buyPrice) * shares;
 }
@@ -1926,6 +1957,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     try { return JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch { return []; }
   });
   const [quotes, setQuotes] = useState({});
+  const [fxRates, setFxRates] = useState({}); // base currency code (e.g. "AUD") -> live USD rate, for cross forex pairs
   const [form, setForm] = useState(blankForm());
   const [showForm, setShowForm] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -1985,6 +2017,26 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     }).finally(() => setRefreshing(false));
   };
 
+  // Live base-currency→USD rate for cross forex pairs (AUD/JPY, GBP/JPY, EUR/GBP, …),
+  // fetched the same way as any other quote (e.g. "AUD/USD").
+  const fetchFxRate = (base) => fetchQuote(`${base}/USD`).then(q => q.price);
+
+  const loadFxRates = (list) => {
+    const bases = [...new Set(
+      list.filter(h => !h.status || h.status === "open")
+        .map(h => crossForexBase(getMarket(h), h.symbol))
+        .filter(Boolean)
+    )];
+    if (!bases.length) return;
+    Promise.allSettled(bases.map(b => fetchFxRate(b))).then(res => {
+      setFxRates(prev => {
+        const next = { ...prev };
+        res.forEach((r, i) => { if (r.status === "fulfilled" && r.value != null) next[bases[i]] = r.value; });
+        return next;
+      });
+    });
+  };
+
   useEffect(() => {
     let cached = [];
     try { cached = JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch {}
@@ -1996,16 +2048,18 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
           // Notion database is empty but local data exists — migrate it up
           setHoldings(cached);
           loadQuotes(cached);
+          loadFxRates(cached);
           cached.forEach(h => syncSave(h));
           return;
         }
         setHoldings(list);
         try { localStorage.setItem(PKEY, JSON.stringify(list)); } catch {}
         loadQuotes(list);
+        loadFxRates(list);
       })
       .catch(() => {
         // API not reachable — use local cache
-        if (cached.length) { setHoldings(cached); loadQuotes(cached); }
+        if (cached.length) { setHoldings(cached); loadQuotes(cached); loadFxRates(cached); }
       });
   }, []);
 
@@ -2017,6 +2071,10 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
       const q = await fetchQuote(sym);
       setTarget(p => ({ ...p, symbol: q.symbol, name: q.name }));
       setQuotes(p => ({ ...p, [q.symbol]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }));
+      const base = crossForexBase(getMarket(target), q.symbol);
+      if (base && !fxRates[base]) {
+        fetchFxRate(base).then(rate => { if (rate != null) setFxRates(p => ({ ...p, [base]: rate })); }).catch(() => {});
+      }
     } catch (e) {
       showToast("Symbol not found: " + e.message, "err");
     } finally { setLookingUp(false); }
@@ -2039,6 +2097,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
         });
         return next;
       });
+      loadFxRates(holdings);
       if (!silent) showToast(anyOk ? "Prices updated ✓" : "Refresh failed", anyOk ? "ok" : "err");
     } catch { if (!silent) showToast("Refresh failed", "err"); }
     finally { setRefreshing(false); }
@@ -2100,6 +2159,10 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     if (!quotes[sym]) {
       fetchQuote(sym).then(q => setQuotes(p => ({ ...p, [sym]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))).catch(() => {});
     }
+    const base = crossForexBase(h.market, sym);
+    if (base && !fxRates[base]) {
+      fetchFxRate(base).then(rate => { if (rate != null) setFxRates(p => ({ ...p, [base]: rate })); }).catch(() => {});
+    }
     setForm(blankForm());
     setShowForm(false);
     showToast("Holding added ✓", "ok");
@@ -2114,6 +2177,10 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     syncSave(updated);
     if (!quotes[updated.symbol]) {
       fetchQuote(updated.symbol).then(q => setQuotes(p => ({ ...p, [updated.symbol]: { price: q.price, high52w: q.high52w, low52w: q.low52w } }))).catch(() => {});
+    }
+    const base = crossForexBase(getMarket(updated), updated.symbol);
+    if (base && !fxRates[base]) {
+      fetchFxRate(base).then(rate => { if (rate != null) setFxRates(p => ({ ...p, [base]: rate })); }).catch(() => {});
     }
     setEditH(null);
     showToast("Updated ✓", "ok");
@@ -2139,7 +2206,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     if (closedH) syncSave(closedH);
     setCloseModal(null);
     if (h && onCloseTrade) {
-      const pnl = parseFloat(positionGainLoss(getMarket(h), h.symbol, h.buyPrice, sellPrice, h.shares).toFixed(2));
+      const pnl = parseFloat(positionGainLoss(getMarket(h), h.symbol, h.buyPrice, sellPrice, h.shares, fxRates).toFixed(2));
       await onCloseTrade({
         id: Date.now(),
         date: sellDate || new Date().toISOString().slice(0, 10),
@@ -2170,8 +2237,8 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
       const q = quotes[h.symbol];
       const lp = getLevPct(h);
       const mkt = getMarket(h);
-      inv += positionNotional(mkt, h.symbol, h.buyPrice, h.shares) * (lp / 100);
-      if (q?.price != null) gl += positionGainLoss(mkt, h.symbol, h.buyPrice, q.price, h.shares);
+      inv += positionNotional(mkt, h.symbol, h.buyPrice, h.shares, fxRates) * (lp / 100);
+      if (q?.price != null) gl += positionGainLoss(mkt, h.symbol, h.buyPrice, q.price, h.shares, fxRates);
     });
     const cur = inv + gl;
     const glPct = inv > 0 ? (gl / inv) * 100 : 0;
@@ -2196,11 +2263,11 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
   const lookupQ = quotes[lookupSym];
   const formLevPct = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
   const formFullPos = form.buyPrice && form.shares
-    ? positionNotional(form.market, form.symbol, parseFloat(form.buyPrice), parseFloat(form.shares))
+    ? positionNotional(form.market, form.symbol, parseFloat(form.buyPrice), parseFloat(form.shares), fxRates)
     : null;
   const formAmt = formFullPos != null ? formFullPos * (formLevPct / 100) : null;
   const editFullPos = editH?.buyPrice && editH?.shares
-    ? positionNotional(getMarket(editH), editH.symbol, parseFloat(editH.buyPrice), parseFloat(editH.shares))
+    ? positionNotional(getMarket(editH), editH.symbol, parseFloat(editH.buyPrice), parseFloat(editH.shares), fxRates)
     : null;
 
   return (
@@ -2390,8 +2457,8 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                       const lp = getLevPct(h);
                       const levMult = lp < 100 ? (100 / lp) : 1;
                       const mkt = getMarket(h);
-                      const amt = positionNotional(mkt, h.symbol, h.buyPrice, h.shares) * (lp / 100);
-                      const gl = hasPx ? positionGainLoss(mkt, h.symbol, h.buyPrice, q.price, h.shares) : 0;
+                      const amt = positionNotional(mkt, h.symbol, h.buyPrice, h.shares, fxRates) * (lp / 100);
+                      const gl = hasPx ? positionGainLoss(mkt, h.symbol, h.buyPrice, q.price, h.shares, fxRates) : 0;
                       const curVal = amt + (hasPx ? gl : 0);
                       const glPct = amt > 0 ? (gl / amt) * 100 : 0;
                       const c = pnlColor(gl);
@@ -2468,8 +2535,8 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                       const lp = getLevPct(h);
                       const levMult = lp < 100 ? (100 / lp) : 1;
                       const mkt = getMarket(h);
-                      const amt = positionNotional(mkt, h.symbol, h.buyPrice, h.shares) * (lp / 100);
-                      const gl = positionGainLoss(mkt, h.symbol, h.buyPrice, h.sellPrice, h.shares);
+                      const amt = positionNotional(mkt, h.symbol, h.buyPrice, h.shares, fxRates) * (lp / 100);
+                      const gl = positionGainLoss(mkt, h.symbol, h.buyPrice, h.sellPrice, h.shares, fxRates);
                       const realizedVal = amt + gl;
                       const glPct = amt > 0 ? (gl / amt) * 100 : 0;
                       const c = pnlColor(gl);
