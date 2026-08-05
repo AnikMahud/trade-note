@@ -1762,17 +1762,101 @@ function StatCard({ label, value, sub, color }) {
 const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
 
+// Leverage presets: label shown to user → margin % stored internally
+// e.g. 10× leverage means you put up 10% of the buy price as margin
+const LEV_PRESETS = [
+  { lbl: "1×",  pct: "100" },
+  { lbl: "2×",  pct: "50"  },
+  { lbl: "5×",  pct: "20"  },
+  { lbl: "10×", pct: "10"  },
+  { lbl: "20×", pct: "5"   },
+];
+const trimNum = (n) => {
+  if (!isFinite(n)) return "0";
+  const s = n < 1 ? n.toFixed(4) : n.toFixed(2);
+  return s.replace(/\.?0+$/, "") || "0";
+};
+
+// Shared leverage selector used in both the Add form and Edit modal (Portfolio tab).
+// Hoisted to module scope — defining this inside PortfolioPage meant React saw a
+// brand-new component type on every parent re-render and remounted it each time,
+// which dropped input focus after every keystroke in the custom leverage box.
+function LevSelector({ levPct, onChange, fullPosition }) {
+  const cur = String(levPct);
+  const curPct = parseFloat(levPct);
+  const curLeverage = curPct > 0 ? 100 / curPct : 1;
+
+  // "Amount used" is a helper field: given the real $ margin you put up, back
+  // into the margin % / leverage. Not persisted separately — levPct is the
+  // single source of truth, this is just an alternate way to set it.
+  const [amountUsed, setAmountUsed] = useState(() => (
+    fullPosition > 0 && curPct > 0 && curPct < 100 ? (fullPosition * curPct / 100).toFixed(2) : ""
+  ));
+
+  const setFromLeverage = (v) => {
+    const lev = parseFloat(v);
+    if (v === "" || isNaN(lev) || lev <= 0) return;
+    setAmountUsed("");
+    onChange(String(Math.min(100, Math.max(0.01, 100 / lev))));
+  };
+
+  const setFromAmountUsed = (v) => {
+    setAmountUsed(v);
+    const amt = parseFloat(v);
+    if (v === "" || isNaN(amt) || amt <= 0 || !(fullPosition > 0)) return;
+    onChange(String(Math.min(100, Math.max(0.01, (amt / fullPosition) * 100))));
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+        {LEV_PRESETS.map(({ lbl, pct }) => (
+          <button key={pct} type="button" onClick={() => { setAmountUsed(""); onChange(pct); }} style={{
+            ...styles.toggleBtn, flex: "0 0 auto", padding: "8px 10px",
+            fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
+            background: cur === pct ? "rgba(198,164,76,0.15)" : "transparent",
+            color: cur === pct ? GOLD : "#5a6b88",
+            borderColor: cur === pct ? GOLD : "#26385a",
+          }}>{lbl}</button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="number" min="1" step="any" placeholder="e.g. 33"
+              style={{ ...styles.input, flex: 1 }}
+              value={curPct > 0 ? trimNum(curLeverage) : ""}
+              onChange={e => setFromLeverage(e.target.value)}
+            />
+            <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>× leverage</span>
+          </div>
+        </div>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="number" min="0" step="any" placeholder={fullPosition > 0 ? "e.g. 20" : "enter buy price + shares first"}
+              style={{ ...styles.input, flex: 1, opacity: fullPosition > 0 ? 1 : 0.5 }}
+              value={amountUsed}
+              disabled={!(fullPosition > 0)}
+              onChange={e => setFromAmountUsed(e.target.value)}
+            />
+            <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>$ used</span>
+          </div>
+          <div style={{ fontSize: 9, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", marginTop: 3 }}>
+            actual margin you put up — auto-fills leverage above
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 10, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>
+        {curPct < 100
+          ? `${trimNum(curPct)}% margin = ${trimNum(curLeverage)}× leverage`
+          : "No leverage — full price invested"}
+      </div>
+    </div>
+  );
+}
+
 function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onCloseTrade }) {
   const PKEY = "tn-portfolio-v1";
-  // Leverage presets: label shown to user → margin % stored internally
-  // e.g. 10× leverage means you put up 10% of the buy price as margin
-  const LEV_PRESETS = [
-    { lbl: "1×",  pct: "100" },
-    { lbl: "2×",  pct: "50"  },
-    { lbl: "5×",  pct: "20"  },
-    { lbl: "10×", pct: "10"  },
-    { lbl: "20×", pct: "5"   },
-  ];
 
   const MARKETS = ["Stocks", "Forex", "Commodities"];
   const MARKET_COLORS = { Stocks: GOLD, Forex: "#7ea6c9", Commodities: "#b98d5e" };
@@ -2070,40 +2154,6 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
 
   const fmtUSD = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Shared leverage selector used in both Add form and Edit modal
-  const LevSelector = ({ levPct, onChange }) => {
-    const cur = String(levPct);
-    const isPreset = LEV_PRESETS.some(x => x.pct === cur);
-    return (
-      <div>
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
-          {LEV_PRESETS.map(({ lbl, pct }) => (
-            <button key={pct} onClick={() => onChange(pct)} style={{
-              ...styles.toggleBtn, flex: "0 0 auto", padding: "8px 10px",
-              fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
-              background: cur === pct ? "rgba(198,164,76,0.15)" : "transparent",
-              color: cur === pct ? GOLD : "#5a6b88",
-              borderColor: cur === pct ? GOLD : "#26385a",
-            }}>{lbl}</button>
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <input type="number" min="0.01" max="100" placeholder="Custom %"
-            style={{ ...styles.input, flex: 1 }}
-            value={isPreset ? "" : levPct}
-            onChange={e => onChange(e.target.value)}
-          />
-          <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>% margin</span>
-        </div>
-        <div style={{ fontSize: 10, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", marginTop: 4 }}>
-          {parseFloat(levPct) < 100
-            ? `${parseFloat(levPct).toFixed(0)}% of buy price = ${(100 / parseFloat(levPct)).toFixed(1)}× leverage`
-            : "No leverage — full price invested"}
-        </div>
-      </div>
-    );
-  };
-
   const openHoldings = holdings.filter(h => !h.status || h.status === "open");
   const closedHoldings = holdings.filter(h => h.status === "closed");
 
@@ -2240,7 +2290,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             </Field>
             <div style={{ gridColumn: "1 / -1" }}>
               <Field label="Leverage">
-                <LevSelector levPct={form.levPct} onChange={v => setForm(p => ({ ...p, levPct: v }))}/>
+                <LevSelector levPct={form.levPct} fullPosition={formFullPos} onChange={v => setForm(p => ({ ...p, levPct: v }))}/>
               </Field>
             </div>
             <Field label="Amount Invested (Margin)">
@@ -2519,7 +2569,9 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
               </Field>
               <div style={{ gridColumn: "1 / -1" }}>
                 <Field label="Leverage">
-                  <LevSelector levPct={editH.levPct} onChange={v => setEditH(p => ({ ...p, levPct: v }))}/>
+                  <LevSelector levPct={editH.levPct}
+                    fullPosition={editH.buyPrice && editH.shares ? parseFloat(editH.buyPrice) * parseFloat(editH.shares) : null}
+                    onChange={v => setEditH(p => ({ ...p, levPct: v }))}/>
                 </Field>
               </div>
               <Field label="Amount Invested (Margin)">
