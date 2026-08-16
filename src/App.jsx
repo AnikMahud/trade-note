@@ -579,12 +579,16 @@ function TradingJournal() {
                   try { await fetch(`/api/ledger?id=${encodeURIComponent(id)}`,{method:"DELETE"}); await reloadLedger(); showToast("Entry deleted","ok"); } catch(e){ showToast("Delete failed","err"); }
                 })}/>
 
-                <div style={{...S.card, marginBottom:14}}>
-                  <div style={S.cardHeader}>
-                    <span style={S.cardTitle}>Calendar Heatmap</span>
-                    <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>last 12 weeks · daily P&L</span>
+                <div style={S.chartsRow}>
+                  <div style={{...S.card, flex:"2 1 320px", minWidth:280}}>
+                    <div style={S.cardHeader}>
+                      <span style={S.cardTitle}>Calendar Heatmap</span>
+                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>last 12 weeks · daily P&L</span>
+                    </div>
+                    <CalendarHeatmap trades={trades}/>
                   </div>
-                  <CalendarHeatmap trades={trades}/>
+
+                  <PeriodReport trades={trades} style={{flex:"1 1 260px", minWidth:240}}/>
                 </div>
 
                 <div style={S.chartsRow}>
@@ -1038,6 +1042,109 @@ function TradingJournal() {
           maxWidth:"90vw",wordBreak:"break-word"
         }}>
           {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function periodBounds(period, custom) {
+  const now = new Date();
+  const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+  const mondayThis = new Date(now); mondayThis.setDate(now.getDate() - dow); mondayThis.setHours(0,0,0,0);
+  switch (period) {
+    case "thisWeek": {
+      const from = mondayThis;
+      const to = new Date(from); to.setDate(from.getDate()+6); to.setHours(23,59,59,999);
+      return { from, to };
+    }
+    case "lastWeek": {
+      const from = new Date(mondayThis); from.setDate(from.getDate()-7);
+      const to = new Date(from); to.setDate(from.getDate()+6); to.setHours(23,59,59,999);
+      return { from, to };
+    }
+    case "thisMonth": {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      const to = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59,999);
+      return { from, to };
+    }
+    case "lastMonth": {
+      const from = new Date(now.getFullYear(), now.getMonth()-1, 1);
+      const to = new Date(now.getFullYear(), now.getMonth(), 0, 23,59,59,999);
+      return { from, to };
+    }
+    case "custom": {
+      const from = custom.from ? new Date(custom.from+"T00:00:00") : null;
+      const to = custom.to ? new Date(custom.to+"T23:59:59") : null;
+      return { from, to };
+    }
+    default:
+      return { from: null, to: null };
+  }
+}
+
+function PeriodReport({ trades, style }) {
+  const [period, setPeriod] = useState("thisWeek");
+  const [custom, setCustom] = useState({ from: "", to: "" });
+
+  const { from, to } = useMemo(() => periodBounds(period, custom), [period, custom]);
+
+  const stats = useMemo(() => {
+    if (period === "custom" && (!from || !to)) return null;
+    const inRange = trades.filter(t => {
+      const d = new Date(t.date + "T12:00:00");
+      return (!from || d >= from) && (!to || d <= to);
+    });
+    const totalPnl = inRange.reduce((a,t) => a + (parseFloat(t.pnl)||0), 0);
+    const wins = inRange.filter(t => (parseFloat(t.pnl)||0) > 0).length;
+    const losses = inRange.filter(t => (parseFloat(t.pnl)||0) < 0).length;
+    const winRate = inRange.length ? (wins/inRange.length)*100 : 0;
+    return { count: inRange.length, totalPnl, wins, losses, winRate };
+  }, [trades, from, to, period]);
+
+  const fmtRange = (d) => d ? d.toLocaleDateString(undefined, {month:"short", day:"numeric"}) : "";
+
+  return (
+    <div style={{...styles.card, ...style}}>
+      <div style={styles.cardHeader}>
+        <span style={styles.cardTitle}>Period Report</span>
+        {from && to && <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{fmtRange(from)} – {fmtRange(to)}</span>}
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+        {[["thisWeek","This Week"],["lastWeek","Last Week"],["thisMonth","This Month"],["lastMonth","Last Month"],["custom","Custom"]].map(([k,l]) => (
+          <button key={k} onClick={()=>setPeriod(k)} style={{...styles.toggleBtn,padding:"7px 10px",fontSize:11,
+            background: period===k ? "rgba(201,168,64,0.15)" : "transparent",
+            color: period===k ? GOLD : "#5a6b88",
+            borderColor: period===k ? GOLD : "#26385a"}}>{l}</button>
+        ))}
+      </div>
+      {period === "custom" && (
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14,alignItems:"flex-end"}}>
+          <div>
+            <div style={{...styles.kpiLabel,marginBottom:4}}>From</div>
+            <input type="date" style={{...styles.input,width:150}} value={custom.from} onChange={e=>setCustom(p=>({...p,from:e.target.value}))}/>
+          </div>
+          <div>
+            <div style={{...styles.kpiLabel,marginBottom:4}}>To</div>
+            <input type="date" style={{...styles.input,width:150}} value={custom.to} onChange={e=>setCustom(p=>({...p,to:e.target.value}))}/>
+          </div>
+        </div>
+      )}
+      {!stats ? (
+        <div style={{color:"#5a6b88",fontSize:12,fontFamily:"'Manrope',sans-serif",padding:"8px 0"}}>Pick a from and to date.</div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[
+            {l:"P&L", v:fmt$(stats.totalPnl), c:pnlColor(stats.totalPnl)},
+            {l:"Entries", v:stats.count, c:"#eee0bf"},
+            {l:"Win Rate", v:stats.count ? stats.winRate.toFixed(1)+"%" : "-", c:stats.count && stats.winRate>=50?G:stats.count?R:"#4a5a78"},
+            {l:"Wins / Losses", v:`${stats.wins}W / ${stats.losses}L`, c:"#7e8aa4"},
+          ].map(m => (
+            <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #14223a"}}>
+              <span style={{fontSize:11,color:"#7e8aa4",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
+              <span style={{fontSize:13,color:m.c,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{m.v}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
