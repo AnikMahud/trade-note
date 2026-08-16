@@ -39,8 +39,7 @@ Server-side (no `VITE_` prefix; only visible to functions):
 - `AUTH_USERS` — JSON array of accounts: `[{"username","password","tag","label"}, ...]`. **First entry is the primary/legacy account** — any existing Notion row with no `User` property is treated as theirs (see Multi-user below).
 - `AUTH_TOKEN_SECRET` — random secret (`openssl rand -hex 32`) used to HMAC-sign session tokens issued by `api/auth.js`.
 
-Client-side (`VITE_` prefix; baked into bundle, treat as public):
-- `VITE_APP_PIN` — gate for write actions, not real security (unrelated to login; both accounts share this same soft PIN)
+No client-side (`VITE_`) secrets — login is the only access gate, checked server-side.
 
 ## Multi-user
 
@@ -51,7 +50,8 @@ Two independent accounts, each with their own username + password, each seeing o
 - **Legacy data:** rows written before multi-user support have no `User` value. The **primary** account (first entry in `AUTH_USERS`) matches those via an `is_empty` fallback in `userScopeFilter()`, so old data was never rewritten and needs no migration. The second account only ever matches its own tagged rows.
 - **Not shared per-account** (same for both users — global tools, not personal data): Scanner (`api/scanner*.js`, watches a fixed market-wide watchlist), quotes (`api/quote.js`), and market-open/close notify (`api/notify.js`).
 - **Per-browser caches** (`localStorage`) are namespaced by tag via `scopedKey()` — trades cache and portfolio holdings cache — so two accounts on the same browser/device never bleed into each other.
-- **Logout:** header button clears the token and returns to the login screen; the write-gating PIN modal is untouched and independent of login.
+- **Logout:** header button clears the token and returns to the login screen.
+- **No separate write-action PIN anymore.** There used to be a second shared PIN gate (`VITE_APP_PIN`) on top of login; it was redundant with real per-account auth and has been removed. `requireUnlock()` still wraps every write path by name (for future gating if ever needed) but currently just calls the action directly.
 
 ## Files
 
@@ -64,7 +64,7 @@ Two independent accounts, each with their own username + password, each seeing o
 - `api/targets.js` — Targets CRUD (50 compound steps, completion state)
 - `api/strategy.js` — Strategy rules + lessons CRUD
 - `api/ledger.js` — Account equity ledger CRUD
-- `public/logo.webp` — 152KB. Brand mark used in header + PIN modal.
+- `public/logo.webp` — 152KB. Brand mark used in header + login screen.
 - `public/favicon.png`, `public/apple-touch-icon.png`
 - `vercel.json` — framework=vite, build=npm run build, output=dist
 - `samples.html` + `old-money-palettes.pdf` — palette exploration archive (not used at runtime)
@@ -73,7 +73,7 @@ Two independent accounts, each with their own username + password, each seeing o
 
 - All inline styles in `src/App.jsx`. Style sheet object `styles`/`S`. Some media-query behavior via `isMobile` state (`window.innerWidth < 640`), with mobile/desktop branches.
 - Header is 2-row on mobile (logo bar + tab strip, sticky-positioned), single-row on desktop.
-- PIN modal gates: New Trade nav, Edit, Delete, Strategy add/edit/delete, Target toggle, Ledger add/delete. Unlock persists per browser tab (sessionStorage). Lock button clears.
+- Write actions (New Trade nav, Edit, Delete, Strategy add/edit/delete, Target toggle, Ledger add/delete) route through `requireUnlock()`; login is the only gate now (see Multi-user).
 - Toast: `showToast(msg, "ok"|"err")` shows bottom-center for 3.5s.
 - Numeric inputs/values use `JetBrains Mono`. Headings use `Cormorant Garamond` italic. Caps labels use `Cinzel`. Body uses `Manrope`.
 - Color tokens (Yacht Club Navy palette):
@@ -115,7 +115,7 @@ npm run dev           # http://localhost:3000
 - **Don't touch existing Notion data** when shipping changes. Run code-only changes by default. Schema migrations require explicit user OK.
 - **Don't commit `.env`** (in `.gitignore`). Don't paste tokens into source.
 - **Don't switch backend away from Notion** without explicit ask. User has all history there.
-- **Don't bypass PIN gate** for any write action.
+- **Don't bypass login** for any API route that touches personal data (trades/ledger/strategy/targets/portfolio) — always go through `requireUser()`/`userScopeFilter()` in `lib/auth.js`.
 - **Don't break image preservation on edit.** When user edits a trade without touching screenshots, the API call must NOT include `Image` in properties → Notion preserves existing files. Only set `Image` when `screenshotsTouched: true`.
 
 ## Feature inventory (so future agents know what exists)

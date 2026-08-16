@@ -9,8 +9,6 @@ import { getAuth, clearAuth, login, authFetch, scopedKey } from "./auth.js";
 const G = "#a5b285";   // sage olive — wins/positive
 const R = "#8a4339";   // oxblood — losses/negative
 const GOLD = "#c6a44c"; // brass — brand accent
-const APP_PIN = import.meta.env.VITE_APP_PIN || "1234";
-const PIN_KEY = "tn-pin-ok";
 
 const SETUPS = ["Breakout","Pullback","Reversal","Momentum","Gap Fill","VWAP Reclaim","Support/Resistance","Earnings","Scalp","Other"];
 const EMOTIONS = ["Disciplined","Confident","Neutral","Anxious","FOMO","Revenge","Impatient","Overconfident"];
@@ -66,69 +64,6 @@ function exportCsv(trades) {
 
 export default function App() {
   return <TradingJournal />;
-}
-
-function PinModal({ onPass, onCancel, expectedPin, title="Confirm PIN", subtitle="Required to add or modify trades" }) {
-  const [pin, setPin] = useState("");
-  const [err, setErr] = useState(false);
-  const [shake, setShake] = useState(false);
-  const submit = () => {
-    if (pin === expectedPin) {
-      try { sessionStorage.setItem(PIN_KEY, "1"); } catch {}
-      onPass();
-    } else {
-      setErr(true); setShake(true);
-      setTimeout(() => setShake(false), 400);
-      setPin("");
-    }
-  };
-  return (
-    <div style={{
-      position:"fixed",inset:0,zIndex:1000,
-      background:"rgba(8,8,16,0.85)",backdropFilter:"blur(6px)",
-      display:"flex",alignItems:"center",justifyContent:"center",
-      fontFamily:"'Manrope',sans-serif"
-    }} onClick={onCancel}>
-      <style>{`
-        @keyframes pinShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
-        .pin-shake { animation: pinShake 0.4s ease; }
-      `}</style>
-      <div className={shake?"pin-shake":""} onClick={e=>e.stopPropagation()} style={{
-        background:"#121e34",border:"1px solid #1c2c45",borderRadius:14,
-        padding:32,minWidth:300,textAlign:"center",
-        boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
-      }}>
-        <img src="/logo.webp" alt="Mahmudur TradeVault" style={{width:160,height:"auto",objectFit:"contain",marginBottom:8}}/>
-        <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:14,color:"#eee0bf",lineHeight:1.2,marginTop:4}}>{title}</div>
-        <div style={{fontSize:11,color:"#7e8aa4",marginTop:6,letterSpacing:1,fontFamily:"'JetBrains Mono',monospace"}}>{subtitle}</div>
-        <input
-          type="password" inputMode="numeric" autoFocus value={pin}
-          onChange={e=>{setPin(e.target.value);setErr(false);}}
-          onKeyDown={e=>{if(e.key==="Enter")submit();if(e.key==="Escape")onCancel();}}
-          placeholder="• • • •"
-          style={{
-            width:"100%",marginTop:20,background:"#0e1a2e",border:`1px solid ${err?R:"#26385a"}`,
-            borderRadius:8,padding:"14px 16px",color:GOLD,
-            fontSize:22,fontFamily:"'JetBrains Mono',monospace",
-            textAlign:"center",letterSpacing:8,outline:"none"
-          }}
-        />
-        <div style={{display:"flex",gap:8,marginTop:12}}>
-          <button onClick={onCancel} style={{
-            flex:1,background:"transparent",border:"1px solid #26385a",borderRadius:8,
-            padding:"11px",color:"#7a8aa8",fontWeight:600,fontSize:12,cursor:"pointer",
-            letterSpacing:1,textTransform:"uppercase",fontFamily:"'Manrope',sans-serif"
-          }}>Cancel</button>
-          <button onClick={submit} style={{
-            flex:2,background:GOLD,border:"none",borderRadius:8,
-            padding:"11px",color:"#0a0a0a",fontWeight:700,fontSize:12,cursor:"pointer",
-            letterSpacing:1,textTransform:"uppercase",fontFamily:"'Manrope',sans-serif"
-          }}>Confirm</button>
-        </div>
-        {err && <div style={{color:R,fontSize:11,marginTop:10,fontFamily:"'JetBrains Mono',monospace"}}>incorrect pin</div>}
-      </div>
-    </div>
-  );
 }
 
 function LoginScreen({ onSuccess }) {
@@ -263,10 +198,6 @@ function TradingJournal() {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState({ symbol: "", dir: "All", result: "All", setup: "All" });
   const [loaded, setLoaded] = useState(false);
-  const [unlocked, setUnlocked] = useState(() => {
-    try { return sessionStorage.getItem(PIN_KEY) === "1"; } catch { return false; }
-  });
-  const [pendingAction, setPendingAction] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [lightbox, setLightbox] = useState(null); // {urls:[], index:0}
@@ -283,14 +214,10 @@ function TradingJournal() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const requireUnlock = (action) => {
-    if (unlocked) action();
-    else setPendingAction(() => action);
-  };
-  const lock = () => {
-    try { sessionStorage.removeItem(PIN_KEY); } catch {}
-    setUnlocked(false);
-  };
+  // Login (username + password) is the real access boundary now, so write
+  // actions no longer need a separate confirm-PIN — kept as a passthrough
+  // since every write path still calls it by name.
+  const requireUnlock = (action) => action();
 
   const reloadTrades = async () => {
     try {
@@ -537,12 +464,6 @@ function TradingJournal() {
                 {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
                 <span title={syncedAt?`Synced ${syncedAt.toLocaleTimeString()} — same data on every device`:"Syncing…"}
                   style={{width:6,height:6,borderRadius:"50%",background:syncedAt?"#a5b285":"#4a5a78",flexShrink:0}}/>
-                <button onClick={lock} title={unlocked?"Lock":"Locked"} style={{
-                  background:unlocked?"rgba(201,168,64,0.08)":"transparent",
-                  border:`1px solid ${unlocked?GOLD+"55":"#26385a"}`,borderRadius:6,
-                  padding:"5px 8px",color:unlocked?GOLD:"#7a8aa8",fontSize:12,cursor:"pointer",
-                  fontFamily:"'JetBrains Mono',monospace"
-                }}>{unlocked?"🔓":"🔒"}</button>
                 <button onClick={logout} title={`Log out (${auth.label})`} style={{
                   background:"transparent",border:"1px solid #26385a",borderRadius:6,
                   padding:"5px 8px",color:"#7a8aa8",fontSize:12,cursor:"pointer",
@@ -600,12 +521,6 @@ function TradingJournal() {
               <span style={{width:6,height:6,borderRadius:"50%",background:syncedAt?"#a5b285":"#4a5a78",flexShrink:0}}/>
               {syncedAt ? `synced ${syncedAt.toLocaleTimeString()}` : "syncing…"}
             </span>
-            <button onClick={lock} title={unlocked?"Lock writes":"Currently locked"} style={{
-              background:unlocked?"rgba(201,168,64,0.08)":"transparent",
-              border:`1px solid ${unlocked?GOLD+"55":"#26385a"}`,borderRadius:6,
-              padding:"5px 10px",color:unlocked?GOLD:"#7a8aa8",fontSize:10,cursor:"pointer",
-              fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
-            }}>{unlocked?"🔓 UNLOCKED":"🔒 LOCKED"}</button>
             <span style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap"}}>{auth.label}</span>
             <button onClick={logout} title="Log out" style={{
               background:"transparent",border:"1px solid #26385a",borderRadius:6,
@@ -1052,7 +967,7 @@ function TradingJournal() {
         )}
 
         {view==="target" && (
-          <div style={S.page}><TargetPage requireUnlock={requireUnlock} unlocked={unlocked} showToast={showToast} ledger={ledger} trades={trades} /></div>
+          <div style={S.page}><TargetPage requireUnlock={requireUnlock} showToast={showToast} ledger={ledger} trades={trades} /></div>
         )}
 
         {view==="portfolio" && (
@@ -1106,18 +1021,6 @@ function TradingJournal() {
         />
       )}
 
-      {pendingAction && (
-        <PinModal
-          expectedPin={auth.pin || APP_PIN}
-          onPass={() => {
-            setUnlocked(true);
-            const fn = pendingAction;
-            setPendingAction(null);
-            try { fn(); } catch (e) { console.error(e); }
-          }}
-          onCancel={() => setPendingAction(null)}
-        />
-      )}
 
       {toast && (
         <div style={{

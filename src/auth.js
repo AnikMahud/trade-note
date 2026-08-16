@@ -24,11 +24,8 @@ export async function login(username, password) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || "Invalid username or password");
-  // Reused as the write-action PIN too, so each account has one password
-  // for everything instead of a separate shared PIN to remember.
-  const withPin = { ...data, pin: password };
-  setAuth(withPin);
-  return withPin;
+  setAuth(data);
+  return data;
 }
 
 export function authFetch(url, opts = {}) {
