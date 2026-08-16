@@ -1,5 +1,5 @@
 import { Client } from "@notionhq/client";
-import { requireUser, userScopeFilter, userProp, ensureUserProperty } from "./_auth.js";
+import { requireUser, userScopeFilter, userProp, ensureUserProperty } from "../lib/auth.js";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const DB = process.env.NOTION_LEDGER_DB_ID;

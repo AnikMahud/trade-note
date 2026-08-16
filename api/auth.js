@@ -1,4 +1,4 @@
-import { authenticate, issueToken } from "./_auth.js";
+import { authenticate, issueToken } from "../lib/auth.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

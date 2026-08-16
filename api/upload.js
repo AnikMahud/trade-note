@@ -2,7 +2,7 @@
 // Returns the file_upload id to attach to the Image property.
 
 import { Buffer } from "buffer";
-import { requireUser } from "./_auth.js";
+import { requireUser } from "../lib/auth.js";
 
 export const config = { api: { bodyParser: { sizeLimit: "6mb" } } };
 
