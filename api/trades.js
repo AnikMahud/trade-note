@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client";
+import { requireUser, userScopeFilter, userProp, ensureUserProperty } from "./_auth.js";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const DB = process.env.NOTION_DATABASE_ID;
@@ -7,8 +8,12 @@ export default async function handler(req, res) {
   if (!process.env.NOTION_TOKEN || !DB) {
     return res.status(500).json({ error: "NOTION_TOKEN or NOTION_DATABASE_ID not set" });
   }
+  const tag = requireUser(req, res);
+  if (!tag) return;
 
   try {
+    await ensureUserProperty(notion, DB);
+
     if (req.method === "GET") {
       const all = [];
       let cursor;
@@ -18,6 +23,7 @@ export default async function handler(req, res) {
           start_cursor: cursor,
           page_size: 100,
           sorts: [{ property: "Date", direction: "ascending" }],
+          filter: userScopeFilter(tag),
         });
         all.push(...r.results);
         cursor = r.has_more ? r.next_cursor : null;
@@ -29,9 +35,13 @@ export default async function handler(req, res) {
       const t = req.body;
       const found = await notion.databases.query({
         database_id: DB,
-        filter: { property: "ID", title: { equals: String(t.id) } },
+        filter: { and: [
+          { property: "ID", title: { equals: String(t.id) } },
+          userScopeFilter(tag),
+        ] },
       });
       const properties = tradeToProps(t);
+      properties.User = userProp(tag);
       // Image handling:
       // - screenshotUploadIds (array) → set Image to those uploads (multi-image)
       // - screenshotsTouched + empty/omitted ids → clear all
@@ -60,7 +70,10 @@ export default async function handler(req, res) {
       const id = req.query.id || req.body?.id;
       const found = await notion.databases.query({
         database_id: DB,
-        filter: { property: "ID", title: { equals: String(id) } },
+        filter: { and: [
+          { property: "ID", title: { equals: String(id) } },
+          userScopeFilter(tag),
+        ] },
       });
       if (found.results[0]) {
         await notion.pages.update({ page_id: found.results[0].id, archived: true });

@@ -1,19 +1,20 @@
 // Frontend storage: Notion via /api/trades. Screenshots compressed + chunked into rich_text.
+import { authFetch, scopedKey } from "./auth.js";
 
-const CACHE_KEY = "tn-trades-cache-v1";
+const cacheKey = () => scopedKey("tn-trades-cache-v1");
 
 export const useCloud = true;
 
 export async function loadTrades() {
   try {
-    const r = await fetch("/api/trades", { cache: "no-store" });
+    const r = await authFetch("/api/trades", { cache: "no-store" });
     if (!r.ok) throw new Error("api " + r.status);
     const list = await r.json();
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch {}
+    try { localStorage.setItem(cacheKey(), JSON.stringify(list)); } catch {}
     return list;
   } catch (e) {
     console.warn("Notion load failed, using cache:", e.message);
-    try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "[]"); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(cacheKey()) || "[]"); } catch { return []; }
   }
 }
 
@@ -44,7 +45,7 @@ export async function saveTrade(t) {
         }
       }
       const compressed = await compressDataUrl(dataUrl, 1200, 0.7);
-      const up = await fetch("/api/upload", {
+      const up = await authFetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dataUrl: compressed, filename: `trade-${t.id}-${i + 1}.jpg` }),
@@ -62,7 +63,7 @@ export async function saveTrade(t) {
     delete payload.screenshots;
   }
 
-  const r = await fetch("/api/trades", {
+  const r = await authFetch("/api/trades", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -107,11 +108,11 @@ function compressDataUrl(dataUrl, maxW, q) {
 }
 
 export async function saveAll(trades) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(trades)); } catch {}
+  try { localStorage.setItem(cacheKey(), JSON.stringify(trades)); } catch {}
 }
 
 export async function removeTrade(id) {
-  const r = await fetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  const r = await authFetch(`/api/trades?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   if (!r.ok) {
     let body = "";
     try { body = await r.text(); } catch {}
@@ -122,15 +123,15 @@ export async function removeTrade(id) {
 
 function cacheUpsert(t) {
   try {
-    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]");
+    const c = JSON.parse(localStorage.getItem(cacheKey()) || "[]");
     const i = c.findIndex(x => x.id === t.id);
     if (i >= 0) c[i] = t; else c.push(t);
-    localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+    localStorage.setItem(cacheKey(), JSON.stringify(c));
   } catch {}
 }
 function cacheRemove(id) {
   try {
-    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "[]").filter(x => x.id !== id);
-    localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+    const c = JSON.parse(localStorage.getItem(cacheKey()) || "[]").filter(x => x.id !== id);
+    localStorage.setItem(cacheKey(), JSON.stringify(c));
   } catch {}
 }

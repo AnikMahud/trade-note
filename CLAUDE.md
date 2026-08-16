@@ -35,10 +35,23 @@ To inspect DB IDs in a session: `curl -H "Authorization: Bearer $NOTION_TOKEN" -
 
 Server-side (no `VITE_` prefix; only visible to functions):
 - `NOTION_TOKEN` — integration secret, `ntn_...`
-- `NOTION_DATABASE_ID`, `NOTION_TARGETS_DB_ID`, `NOTION_STRATEGY_DB_ID`, `NOTION_LEDGER_DB_ID` — 32-char hex, no dashes
+- `NOTION_DATABASE_ID`, `NOTION_TARGETS_DB_ID`, `NOTION_STRATEGY_DB_ID`, `NOTION_LEDGER_DB_ID`, `NOTION_PORTFOLIO_DB_ID` — 32-char hex, no dashes
+- `AUTH_USERS` — JSON array of accounts: `[{"username","password","tag","label"}, ...]`. **First entry is the primary/legacy account** — any existing Notion row with no `User` property is treated as theirs (see Multi-user below).
+- `AUTH_TOKEN_SECRET` — random secret (`openssl rand -hex 32`) used to HMAC-sign session tokens issued by `api/auth.js`.
 
 Client-side (`VITE_` prefix; baked into bundle, treat as public):
-- `VITE_APP_PIN` — gate for write actions, not real security
+- `VITE_APP_PIN` — gate for write actions, not real security (unrelated to login; both accounts share this same soft PIN)
+
+## Multi-user
+
+Two independent accounts, each with their own username + password, each seeing only their own data — like two separate journals sharing one deployment.
+
+- **Login:** `api/auth.js` checks credentials against `AUTH_USERS`, issues an HMAC-signed token (`api/_auth.js`, 90-day expiry). Frontend stores it in `localStorage` (`src/auth.js`, key `tn-auth`) and sends it as the `x-tn-auth` header on every API call via `authFetch()`.
+- **Data isolation:** Trades, Ledger, Strategy, Targets, and Portfolio Notion DBs each get a `User` select property (added automatically on first request — `ensureUserProperty()`, same pattern as the Portfolio `Market` field). Every query/write is scoped server-side by the token's `tag`; the frontend never chooses which user's data it sees.
+- **Legacy data:** rows written before multi-user support have no `User` value. The **primary** account (first entry in `AUTH_USERS`) matches those via an `is_empty` fallback in `userScopeFilter()`, so old data was never rewritten and needs no migration. The second account only ever matches its own tagged rows.
+- **Not shared per-account** (same for both users — global tools, not personal data): Scanner (`api/scanner*.js`, watches a fixed market-wide watchlist), quotes (`api/quote.js`), and market-open/close notify (`api/notify.js`).
+- **Per-browser caches** (`localStorage`) are namespaced by tag via `scopedKey()` — trades cache and portfolio holdings cache — so two accounts on the same browser/device never bleed into each other.
+- **Logout:** header button clears the token and returns to the login screen; the write-gating PIN modal is untouched and independent of login.
 
 ## Files
 

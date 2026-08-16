@@ -1,4 +1,5 @@
 import { Client } from "@notionhq/client";
+import { requireUser, userScopeFilter, userProp, ensureUserProperty } from "./_auth.js";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const DB = process.env.NOTION_PORTFOLIO_DB_ID;
@@ -23,7 +24,11 @@ export default async function handler(req, res) {
   if (!process.env.NOTION_TOKEN || !DB) {
     return res.status(500).json({ error: "NOTION_TOKEN or NOTION_PORTFOLIO_DB_ID not set" });
   }
+  const tag = requireUser(req, res);
+  if (!tag) return;
   try {
+    await ensureUserProperty(notion, DB);
+
     if (req.method === "GET") {
       const all = [];
       let cursor;
@@ -33,6 +38,7 @@ export default async function handler(req, res) {
           start_cursor: cursor,
           page_size: 100,
           sorts: [{ property: "BuyDate", direction: "ascending" }],
+          filter: userScopeFilter(tag),
         });
         all.push(...r.results);
         cursor = r.has_more ? r.next_cursor : null;
@@ -47,7 +53,10 @@ export default async function handler(req, res) {
       const useId = String(id || `p-${Date.now()}`);
       const found = await notion.databases.query({
         database_id: DB,
-        filter: { property: "ID", title: { equals: useId } },
+        filter: { and: [
+          { property: "ID", title: { equals: useId } },
+          userScopeFilter(tag),
+        ] },
       });
       const properties = {
         ID:        { title: [{ text: { content: useId } }] },
@@ -61,6 +70,7 @@ export default async function handler(req, res) {
         Status:    { select: { name: status || "open" } },
         SellPrice: { number: sellPrice != null ? Number(sellPrice) : null },
         SellDate:  { date: sellDate ? { start: sellDate } : null },
+        User:      userProp(tag),
       };
       if (found.results[0]) {
         await notion.pages.update({ page_id: found.results[0].id, properties });
@@ -75,7 +85,10 @@ export default async function handler(req, res) {
       if (!id) return res.status(400).json({ error: "id required" });
       const found = await notion.databases.query({
         database_id: DB,
-        filter: { property: "ID", title: { equals: String(id) } },
+        filter: { and: [
+          { property: "ID", title: { equals: String(id) } },
+          userScopeFilter(tag),
+        ] },
       });
       if (found.results[0]) {
         await notion.pages.update({ page_id: found.results[0].id, archived: true });

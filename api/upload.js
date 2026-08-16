@@ -2,6 +2,7 @@
 // Returns the file_upload id to attach to the Image property.
 
 import { Buffer } from "buffer";
+import { requireUser } from "./_auth.js";
 
 export const config = { api: { bodyParser: { sizeLimit: "6mb" } } };
 
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
   if (!process.env.NOTION_TOKEN) {
     return res.status(500).json({ error: "NOTION_TOKEN not set" });
   }
+  if (!requireUser(req, res)) return;
 
   try {
     const { dataUrl, filename = "screenshot.jpg" } = req.body || {};

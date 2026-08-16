@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, ReferenceLine, Cell, CartesianGrid
 } from "recharts";
 import { loadTrades, saveTrade, saveAll, removeTrade, useCloud } from "./storage.js";
+import { getAuth, clearAuth, login, authFetch, scopedKey } from "./auth.js";
 
 const G = "#a5b285";   // sage olive — wins/positive
 const R = "#8a4339";   // oxblood — losses/negative
@@ -130,6 +131,78 @@ function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to
   );
 }
 
+function LoginScreen({ onSuccess }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const submit = async () => {
+    if (!username || !password || busy) return;
+    setBusy(true); setErr("");
+    try {
+      const data = await login(username, password);
+      onSuccess(data);
+    } catch (e) {
+      setErr(e.message || "Login failed");
+      setShake(true);
+      setTimeout(() => setShake(false), 400);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{
+      minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"radial-gradient(ellipse at top, #14233e 0%, #0b1424 55%, #07101c 100%)",
+      fontFamily:"'Manrope',sans-serif",padding:20
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cinzel:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        @keyframes tnLoginShake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+        .tn-login-shake { animation: tnLoginShake 0.4s ease; }
+      `}</style>
+      <div className={shake?"tn-login-shake":""} style={{
+        background:"#121e34",border:"1px solid #1c2c45",borderRadius:14,
+        padding:"36px 32px",width:340,maxWidth:"100%",textAlign:"center",
+        boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
+      }}>
+        <Brand size="hero"/>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginTop:28}}>
+          <input
+            autoFocus placeholder="Username" value={username}
+            onChange={e=>{setUsername(e.target.value);setErr("");}}
+            onKeyDown={e=>{if(e.key==="Enter")submit();}}
+            style={{
+              background:"#0e1a2e",border:"1px solid #26385a",borderRadius:8,
+              padding:"12px 14px",color:"#eee0bf",fontSize:14,
+              fontFamily:"'JetBrains Mono',monospace",outline:"none"
+            }}
+          />
+          <input
+            type="password" placeholder="Password" value={password}
+            onChange={e=>{setPassword(e.target.value);setErr("");}}
+            onKeyDown={e=>{if(e.key==="Enter")submit();}}
+            style={{
+              background:"#0e1a2e",border:`1px solid ${err?R:"#26385a"}`,borderRadius:8,
+              padding:"12px 14px",color:"#eee0bf",fontSize:14,
+              fontFamily:"'JetBrains Mono',monospace",outline:"none"
+            }}
+          />
+        </div>
+        <button onClick={submit} disabled={busy} style={{
+          width:"100%",marginTop:16,background:GOLD,border:"none",borderRadius:8,
+          padding:"12px",color:"#0a0a0a",fontWeight:700,fontSize:12,
+          cursor:busy?"default":"pointer",letterSpacing:1,textTransform:"uppercase",
+          fontFamily:"'Manrope',sans-serif",opacity:busy?0.7:1
+        }}>{busy?"Signing in…":"Sign In"}</button>
+        {err && <div style={{color:R,fontSize:11,marginTop:12,fontFamily:"'JetBrains Mono',monospace"}}>{err}</div>}
+      </div>
+    </div>
+  );
+}
+
 function Brand({size="header", showLock=false, onLock}) {
   const hero = size==="hero";
   return (
@@ -181,6 +254,9 @@ function Brand({size="header", showLock=false, onLock}) {
 }
 
 function TradingJournal() {
+  const [auth, setAuthState] = useState(() => getAuth());
+  const logout = () => { clearAuth(); setAuthState(null); };
+
   const [trades, setTrades] = useState([]);
   const [view, setView] = useState("dashboard");
   const [form, setForm] = useState(blank());
@@ -224,8 +300,9 @@ function TradingJournal() {
     } catch (e) { console.error(e); }
   };
   useEffect(() => {
+    if (!auth) return;
     (async () => { await reloadTrades(); setLoaded(true); })();
-  }, []);
+  }, [auth]);
 
   const imgRetryRef = useRef(0);
   const onImgError = () => {
@@ -239,12 +316,12 @@ function TradingJournal() {
   const [ledgerModal, setLedgerModal] = useState(null);
   const reloadLedger = async () => {
     try {
-      const r = await fetch("/api/ledger", { cache: "no-store" });
+      const r = await authFetch("/api/ledger", { cache: "no-store" });
       if (!r.ok) throw new Error("api " + r.status);
       setLedger(await r.json());
     } catch (e) { console.warn("ledger load failed:", e); }
   };
-  useEffect(() => { reloadLedger(); }, []);
+  useEffect(() => { if (auth) reloadLedger(); }, [auth]);
 
   // Cross-device sync: Notion is the shared source of truth, but the page only
   // fetched it once on mount. Re-pull on an interval and whenever the tab/app
@@ -252,6 +329,7 @@ function TradingJournal() {
   const [syncedAt, setSyncedAt] = useState(null);
   const lastSyncRef = useRef(0);
   useEffect(() => {
+    if (!auth) return;
     const SYNC_MIN_GAP_MS = 3000;
     const SYNC_POLL_MS = 25000;
     const syncNow = async () => {
@@ -270,22 +348,22 @@ function TradingJournal() {
       window.removeEventListener("focus", syncNow);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [auth]);
 
   const [strategyRules, setStrategyRules] = useState([]);
   const [checkedRules, setCheckedRules] = useState({});
   useEffect(() => {
-    if (view !== "add") return;
+    if (view !== "add" || !auth) return;
     (async () => {
       try {
-        const r = await fetch("/api/strategy");
+        const r = await authFetch("/api/strategy");
         if (!r.ok) return;
         const list = await r.json();
         setStrategyRules(list.filter(x => x.type === "Rule").sort((a,b)=>a.order-b.order));
       } catch {}
     })();
     setCheckedRules({});
-  }, [view, form.id]);
+  }, [view, form.id, auth]);
   const allRulesChecked = strategyRules.length > 0 && strategyRules.every(r => checkedRules[r.id]);
 
   const addTrade = async () => {
@@ -433,6 +511,7 @@ function TradingJournal() {
 
   const S = styles;
 
+  if (!auth) return <LoginScreen onSuccess={setAuthState}/>;
   if (!loaded) return <div style={S.root}><div style={{color:"#5a6b88",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
 
   return (
@@ -464,6 +543,11 @@ function TradingJournal() {
                   padding:"5px 8px",color:unlocked?GOLD:"#7a8aa8",fontSize:12,cursor:"pointer",
                   fontFamily:"'JetBrains Mono',monospace"
                 }}>{unlocked?"🔓":"🔒"}</button>
+                <button onClick={logout} title={`Log out (${auth.label})`} style={{
+                  background:"transparent",border:"1px solid #26385a",borderRadius:6,
+                  padding:"5px 8px",color:"#7a8aa8",fontSize:12,cursor:"pointer",
+                  fontFamily:"'JetBrains Mono',monospace"
+                }}>⎋</button>
               </div>
             </div>
             <div style={{
@@ -522,6 +606,12 @@ function TradingJournal() {
               padding:"5px 10px",color:unlocked?GOLD:"#7a8aa8",fontSize:10,cursor:"pointer",
               fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
             }}>{unlocked?"🔓 UNLOCKED":"🔒 LOCKED"}</button>
+            <span style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap"}}>{auth.label}</span>
+            <button onClick={logout} title="Log out" style={{
+              background:"transparent",border:"1px solid #26385a",borderRadius:6,
+              padding:"5px 10px",color:"#7a8aa8",fontSize:10,cursor:"pointer",
+              fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
+            }}>LOG OUT</button>
           </div>
         </div>
       )}
@@ -576,7 +666,7 @@ function TradingJournal() {
 
                 <EquityCard ledger={ledger} trades={trades} onAdd={()=>requireUnlock(()=>setLedgerModal({date:new Date().toISOString().slice(0,10),type:"Deposit",amount:"",note:""}))} onDelete={(id)=>requireUnlock(async()=>{
                   if(!confirm("Delete this entry?")) return;
-                  try { await fetch(`/api/ledger?id=${encodeURIComponent(id)}`,{method:"DELETE"}); await reloadLedger(); showToast("Entry deleted","ok"); } catch(e){ showToast("Delete failed","err"); }
+                  try { await authFetch(`/api/ledger?id=${encodeURIComponent(id)}`,{method:"DELETE"}); await reloadLedger(); showToast("Entry deleted","ok"); } catch(e){ showToast("Delete failed","err"); }
                 })}/>
 
                 <div style={S.chartsRow}>
@@ -991,7 +1081,7 @@ function TradingJournal() {
           onClose={()=>setLedgerModal(null)}
           onSave={async (entry) => {
             try {
-              const r = await fetch("/api/ledger", {
+              const r = await authFetch("/api/ledger", {
                 method:"POST", headers:{"Content-Type":"application/json"},
                 body: JSON.stringify(entry),
               });
@@ -1434,7 +1524,7 @@ function StrategyPage({ requireUnlock, showToast }) {
 
   const load = async () => {
     try {
-      const r = await fetch("/api/strategy", { cache: "no-store" });
+      const r = await authFetch("/api/strategy", { cache: "no-store" });
       if (!r.ok) throw new Error("api " + r.status);
       const list = await r.json();
       setItems(list);
@@ -1462,7 +1552,7 @@ function StrategyPage({ requireUnlock, showToast }) {
     if (!item.text.trim()) { showToast && showToast("Empty text", "err"); return; }
     setBusy(true);
     try {
-      const r = await fetch("/api/strategy", {
+      const r = await authFetch("/api/strategy", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify(item),
       });
@@ -1484,7 +1574,7 @@ function StrategyPage({ requireUnlock, showToast }) {
     if (!confirm("Delete this item?")) return;
     setBusy(true);
     try {
-      const r = await fetch(`/api/strategy?id=${encodeURIComponent(id)}`, { method:"DELETE" });
+      const r = await authFetch(`/api/strategy?id=${encodeURIComponent(id)}`, { method:"DELETE" });
       if (!r.ok) throw new Error("api " + r.status);
       setItems(prev => prev.filter(p => p.id !== id));
       showToast && showToast("Deleted ✓", "ok");
@@ -1727,7 +1817,7 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
 
   const load = async () => {
     try {
-      const r = await fetch("/api/targets", { cache: "no-store" });
+      const r = await authFetch("/api/targets", { cache: "no-store" });
       if (!r.ok) throw new Error("api " + r.status);
       const list = await r.json();
       const m = {};
@@ -1758,7 +1848,7 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
     else delete optimistic[step];
     setDoneMap(optimistic);
     try {
-      const r = await fetch("/api/targets", {
+      const r = await authFetch("/api/targets", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ step, done: next }),
       });
@@ -2019,7 +2109,7 @@ function positionGainLoss(market, symbol, buyPrice, curPrice, shares, fxRates = 
 }
 
 function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onCloseTrade }) {
-  const PKEY = "tn-portfolio-v1";
+  const PKEY = scopedKey("tn-portfolio-v1");
 
   const MARKETS = ["Stocks", "Forex", "Commodities"];
   const MARKET_COLORS = { Stocks: GOLD, Forex: "#7ea6c9", Commodities: "#b98d5e" };
@@ -2086,7 +2176,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
   };
 
   const syncSave = (item) => {
-    fetch("/api/portfolio", {
+    authFetch("/api/portfolio", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     }).then(r => { if (!r.ok) throw new Error("api " + r.status); })
@@ -2094,7 +2184,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
   };
 
   const syncDelete = (id) => {
-    fetch(`/api/portfolio?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+    authFetch(`/api/portfolio?id=${encodeURIComponent(id)}`, { method: "DELETE" })
       .then(r => { if (!r.ok) throw new Error("api " + r.status); })
       .catch(e => { console.warn("portfolio sync delete failed:", e); showToast("Cloud delete failed", "err"); });
   };
@@ -2148,7 +2238,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
     let cached = [];
     try { cached = JSON.parse(localStorage.getItem(PKEY) || "[]"); } catch {}
 
-    fetch("/api/portfolio")
+    authFetch("/api/portfolio")
       .then(r => r.ok ? r.json() : Promise.reject("api " + r.status))
       .then(list => {
         if (list.length === 0 && cached.length > 0) {
