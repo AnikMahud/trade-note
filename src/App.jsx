@@ -68,12 +68,12 @@ export default function App() {
   return <TradingJournal />;
 }
 
-function PinModal({ onPass, onCancel, title="Confirm PIN", subtitle="Required to add or modify trades" }) {
+function PinModal({ onPass, onCancel, expectedPin, title="Confirm PIN", subtitle="Required to add or modify trades" }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState(false);
   const [shake, setShake] = useState(false);
   const submit = () => {
-    if (pin === APP_PIN) {
+    if (pin === expectedPin) {
       try { sessionStorage.setItem(PIN_KEY, "1"); } catch {}
       onPass();
     } else {
@@ -1108,6 +1108,7 @@ function TradingJournal() {
 
       {pendingAction && (
         <PinModal
+          expectedPin={auth.pin || APP_PIN}
           onPass={() => {
             setUnlocked(true);
             const fn = pendingAction;
