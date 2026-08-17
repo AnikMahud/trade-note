@@ -1,8 +1,24 @@
 import { Client } from "@notionhq/client";
-import { requireUser, userScopeFilter, userProp, ensureUserProperty } from "../lib/auth.js";
+import { requireUser, userScopeFilter, userProp, ensureUserProperty, listAccounts } from "../lib/auth.js";
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 const DB = process.env.NOTION_DATABASE_ID;
+
+// Older Trades DBs predate leverage tracking. Add it on first write in this
+// lambda instance rather than requiring a manual Notion schema migration.
+let levPctPropChecked = false;
+async function ensureLevPctProperty() {
+  if (levPctPropChecked) return;
+  try {
+    const db = await notion.databases.retrieve({ database_id: DB });
+    if (!db.properties?.LevPct) {
+      await notion.databases.update({ database_id: DB, properties: { LevPct: { number: {} } } });
+    }
+  } catch (e) {
+    console.warn("ensureLevPctProperty failed:", e.message);
+  }
+  levPctPropChecked = true;
+}
 
 export default async function handler(req, res) {
   if (!process.env.NOTION_TOKEN || !DB) {
@@ -13,6 +29,47 @@ export default async function handler(req, res) {
 
   try {
     await ensureUserProperty(notion, DB);
+    await ensureLevPctProperty();
+
+    // Leaderboard: the one cross-account read. Each account normally only ever
+    // sees its own rows (userScopeFilter), so this loops every configured
+    // account server-side and returns just week/month P&L + trade counts —
+    // no symbols, notes, or other per-trade detail leaks across accounts.
+    if (req.method === "GET" && req.query.leaderboard) {
+      const now = new Date();
+      const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+      const weekStart = new Date(now); weekStart.setHours(0,0,0,0); weekStart.setDate(now.getDate() - dow);
+      const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
+
+      const board = [];
+      for (const acc of listAccounts()) {
+        const all = [];
+        let cursor;
+        do {
+          const r = await notion.databases.query({
+            database_id: DB,
+            start_cursor: cursor,
+            page_size: 100,
+            filter: userScopeFilter(acc.tag),
+          });
+          all.push(...r.results);
+          cursor = r.has_more ? r.next_cursor : null;
+        } while (cursor);
+
+        let weekPnl = 0, weekTrades = 0, monthPnl = 0, monthTrades = 0;
+        for (const t of all.map(pageToTrade)) {
+          const d = new Date(t.date + "T12:00:00");
+          const pnl = parseFloat(t.pnl) || 0;
+          if (d >= weekStart && d <= weekEnd) { weekPnl += pnl; weekTrades++; }
+          if (d >= monthStart && d <= monthEnd) { monthPnl += pnl; monthTrades++; }
+        }
+        board.push({ tag: acc.tag, label: acc.label, weekPnl, weekTrades, monthPnl, monthTrades });
+      }
+      board.sort((a, b) => b.monthPnl - a.monthPnl);
+      return res.status(200).json(board);
+    }
 
     if (req.method === "GET") {
       const all = [];
@@ -123,6 +180,7 @@ function tradeToProps(t) {
     "Entry":     { number: num(t.entry) },
     "Exit":      { number: num(t.exit) },
     "Size":      { number: num(t.size) },
+    "LevPct":    { number: t.levPct != null && t.levPct !== "" ? Number(t.levPct) : 100 },
     "PnL":       { number: num(t.pnl) },
     "RMultiple": { number: num(t.rMultiple) },
     "Grade":     { select: { name: t.grade || "A" } },
@@ -144,6 +202,7 @@ function pageToTrade(p) {
     entry: pickNum(x.Entry) ?? "",
     exit: pickNum(x.Exit) ?? "",
     size: pickNum(x.Size) ?? "",
+    levPct: pickNum(x.LevPct) ?? 100,
     pnl: pickNum(x.PnL) ?? "",
     rMultiple: pickNum(x.RMultiple) ?? "",
     grade: pickSelect(x.Grade) || "A",

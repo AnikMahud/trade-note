@@ -24,6 +24,7 @@ const blank = () => ({
   entry: "",
   exit: "",
   size: "",
+  levPct: "100",
   pnl: "",
   rMultiple: "",
   grade: "A",
@@ -250,6 +251,15 @@ function TradingJournal() {
   };
   useEffect(() => { if (auth) reloadLedger(); }, [auth]);
 
+  const [leaderboard, setLeaderboard] = useState([]);
+  const reloadLeaderboard = async () => {
+    try {
+      const r = await authFetch("/api/trades?leaderboard=1", { cache: "no-store" });
+      if (r.ok) setLeaderboard(await r.json());
+    } catch (e) { console.warn("leaderboard load failed:", e); }
+  };
+  useEffect(() => { if (auth) reloadLeaderboard(); }, [auth]);
+
   // Cross-device sync: Notion is the shared source of truth, but the page only
   // fetched it once on mount. Re-pull on an interval and whenever the tab/app
   // regains focus so edits made on another device show up without a manual reload.
@@ -263,7 +273,7 @@ function TradingJournal() {
       const now = Date.now();
       if (now - lastSyncRef.current < SYNC_MIN_GAP_MS) return;
       lastSyncRef.current = now;
-      await Promise.all([reloadTrades(), reloadLedger()]);
+      await Promise.all([reloadTrades(), reloadLedger(), reloadLeaderboard()]);
       setSyncedAt(new Date());
     };
     const onVisible = () => { if (document.visibilityState === "visible") syncNow(); };
@@ -438,6 +448,16 @@ function TradingJournal() {
 
   const S = styles;
 
+  // Same "actual $ margin → leverage %" helper already used on the Portfolio tab
+  // (see LevSelector) — real broker margin rarely lands on a round preset like
+  // 5x/10x, so typing the $ amount actually put up backs into the exact %.
+  const fmtUSD = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const formLevPct = Math.min(100, Math.max(0.01, parseFloat(form.levPct) || 100));
+  const formFullPos = parseFloat(form.entry) > 0 && parseFloat(form.size) > 0
+    ? parseFloat(form.entry) * parseFloat(form.size)
+    : null;
+  const formAmt = formFullPos != null ? formFullPos * (formLevPct / 100) : null;
+
   if (!auth) return <LoginScreen onSuccess={setAuthState}/>;
   if (!loaded) return <div style={S.root}><div style={{color:"#5a6b88",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
 
@@ -578,6 +598,39 @@ function TradingJournal() {
                     </div>
                   ))}
                 </div>
+
+                {leaderboard.length > 0 && (
+                  <div style={{...S.card, marginBottom:16, borderColor:GOLD+"33"}}>
+                    <div style={S.cardHeader}>
+                      <span style={S.cardTitle}>Leaderboard</span>
+                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>this week · this month</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {leaderboard.map((u,i)=>(
+                        <div key={u.tag} style={{
+                          display:"flex",alignItems:"center",gap:14,padding:"10px 12px",borderRadius:8,flexWrap:"wrap",
+                          background: u.tag===auth.tag ? "rgba(198,164,76,0.08)" : "transparent",
+                          border:`1px solid ${i===0?GOLD+"55":"#1c2c45"}`
+                        }}>
+                          <span style={{fontSize:17,width:22,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":"🥉"}</span>
+                          <div style={{flex:"1 1 100px",minWidth:0,fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:13,color:"#eee0bf"}}>
+                            {u.label}{u.tag===auth.tag?" (you)":""}
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Week</div>
+                            <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.weekPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.weekPnl)}</div>
+                            <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.weekTrades} trade{u.weekTrades!==1?"s":""}</div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Month</div>
+                            <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.monthPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.monthPnl)}</div>
+                            <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.monthTrades} trade{u.monthTrades!==1?"s":""}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <EquityCard ledger={ledger} trades={trades} onAdd={()=>requireUnlock(()=>setLedgerModal({date:new Date().toISOString().slice(0,10),type:"Deposit",amount:"",note:""}))} onDelete={(id)=>requireUnlock(async()=>{
                   if(!confirm("Delete this entry?")) return;
@@ -819,6 +872,16 @@ function TradingJournal() {
               <Field label="Entry Price"><input type="number" placeholder="0.00" style={S.input} value={form.entry} onChange={e=>setForm(p=>({...p,entry:e.target.value}))}/></Field>
               <Field label="Exit Price"><input type="number" placeholder="0.00" style={S.input} value={form.exit} onChange={e=>setForm(p=>({...p,exit:e.target.value}))}/></Field>
               <Field label="Size / Shares"><input type="number" placeholder="100" style={S.input} value={form.size} onChange={e=>setForm(p=>({...p,size:e.target.value}))}/></Field>
+              <div style={{gridColumn:"1/-1"}}>
+                <Field label="Leverage">
+                  <LevSelector levPct={form.levPct} fullPosition={formFullPos} onChange={v=>setForm(p=>({...p,levPct:v}))}/>
+                </Field>
+              </div>
+              <Field label="Amount Invested (Margin)">
+                <div style={{...S.input,background:"#0a1220",border:"1px solid #1c2c45",color:GOLD,fontWeight:700,cursor:"default"}}>
+                  {formAmt != null ? fmtUSD(formAmt) : <span style={{color:"#4a5a78"}}>—</span>}
+                </div>
+              </Field>
               <Field label="P&L ($) *"><input type="number" placeholder="+250.00 or -80.00" style={{...S.input,color:form.pnl?(parseFloat(form.pnl)>=0?G:R):"inherit"}} value={form.pnl} onChange={e=>setForm(p=>({...p,pnl:e.target.value}))}/></Field>
 
               <Field label="R-Multiple"><input type="number" placeholder="2.5" style={S.input} value={form.rMultiple} onChange={e=>setForm(p=>({...p,rMultiple:e.target.value}))}/></Field>
