@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 181.11,
-      "lastCheckedAt": "2026-08-17T14:16:11.010Z"
+      "lastPrice": 181.1,
+      "lastCheckedAt": "2026-08-17T14:18:12.164Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -268,8 +268,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 216.22,
-      "lastCheckedAt": "2026-08-17T14:16:11.010Z"
+      "lastPrice": 215.08,
+      "lastCheckedAt": "2026-08-17T14:18:12.164Z"
     },
     {
       "id": "GILD-2026-08-04T13:30:21.145Z",
@@ -343,8 +343,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 38.72,
-      "lastCheckedAt": "2026-08-17T14:16:11.010Z"
+      "lastPrice": 38.53,
+      "lastCheckedAt": "2026-08-17T14:18:12.164Z"
     },
     {
       "id": "WDAY-2026-08-13T18:52:13.893Z",
@@ -358,8 +358,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 194.58,
-      "lastCheckedAt": "2026-08-17T14:16:11.010Z"
+      "lastPrice": 194.07,
+      "lastCheckedAt": "2026-08-17T14:18:12.164Z"
     }
   ]
 }
