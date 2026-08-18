@@ -10,6 +10,9 @@ const G = "#a5b285";   // sage olive — wins/positive
 const R = "#8a4339";   // oxblood — losses/negative
 const GOLD = "#c6a44c"; // brass — brand accent
 
+const DAILY_LOSS_LIMIT_PCT = 2;   // % of equity at start of day
+const WEEKLY_LOSS_LIMIT_PCT = 5;  // % of equity at start of week (Monday)
+
 const SETUPS = ["Breakout","Pullback","Reversal","Momentum","Gap Fill","VWAP Reclaim","Support/Resistance","Earnings","Scalp","Other"];
 const EMOTIONS = ["Disciplined","Confident","Neutral","Anxious","FOMO","Revenge","Impatient","Overconfident"];
 const GRADES = ["A+","A","B","C","D"];
@@ -219,6 +222,14 @@ function TradingJournal() {
   // actions no longer need a separate confirm-PIN — kept as a passthrough
   // since every write path still calls it by name.
   const requireUnlock = (action) => action();
+
+  const goToAdd = () => {
+    if (riskLimits.breached) {
+      showToast(`${riskLimits.dayBreached ? "Daily" : "Weekly"} loss limit hit — no more trades until it resets`, "err");
+      return;
+    }
+    requireUnlock(() => { setForm(blank()); setView("add"); });
+  };
 
   const reloadTrades = async () => {
     try {
@@ -435,6 +446,42 @@ function TradingJournal() {
       total:sorted.length,nWins:wins.length,nLosses:losses.length};
   }, [trades]);
 
+  // Daily/weekly loss circuit-breaker: measured against this user's own
+  // ledger equity at the start of the day/week, since it's a % of balance
+  // rather than raw $, and each account's balance is independent.
+  const riskLimits = useMemo(() => {
+    const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+    const toDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+    const starting = sum(ledger.filter(e => e.type === "Starting"), e => e.amount || 0);
+    const ledgerDelta = (e) => e.type === "Withdrawal" ? -(e.amount || 0) : (e.amount || 0);
+    const nonStartingLedger = ledger.filter(e => e.type !== "Starting");
+
+    const now = new Date();
+    const todayStr = toDateStr(now);
+    const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+    const monday = new Date(now); monday.setDate(now.getDate() - dow);
+    const weekStartStr = toDateStr(monday);
+
+    const equityBefore = (dateStr) =>
+      starting
+      + sum(nonStartingLedger.filter(e => e.date < dateStr), ledgerDelta)
+      + sum(trades.filter(t => t.date < dateStr), t => parseFloat(t.pnl) || 0);
+
+    const dayBaseEquity = equityBefore(todayStr);
+    const dayPnl = sum(trades.filter(t => t.date === todayStr), t => parseFloat(t.pnl) || 0);
+    const dayPct = dayBaseEquity > 0 ? (dayPnl / dayBaseEquity) * 100 : 0;
+
+    const weekBaseEquity = equityBefore(weekStartStr);
+    const weekPnl = sum(trades.filter(t => t.date >= weekStartStr), t => parseFloat(t.pnl) || 0);
+    const weekPct = weekBaseEquity > 0 ? (weekPnl / weekBaseEquity) * 100 : 0;
+
+    const dayBreached = dayBaseEquity > 0 && dayPct <= -DAILY_LOSS_LIMIT_PCT;
+    const weekBreached = weekBaseEquity > 0 && weekPct <= -WEEKLY_LOSS_LIMIT_PCT;
+
+    return { dayPnl, dayPct, dayBaseEquity, weekPnl, weekPct, weekBaseEquity, dayBreached, weekBreached, breached: dayBreached || weekBreached };
+  }, [trades, ledger]);
+
   const filtered = useMemo(() => [...trades]
     .sort((a,b)=>new Date(b.date)-new Date(a.date))
     .filter(t=>{
@@ -499,7 +546,7 @@ function TradingJournal() {
                 const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
                 return (
                   <button key={v} onClick={()=>{
-                    if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
+                    if (v==="add") goToAdd();
                     else setView(v);
                   }} style={{
                     flex:1,background:"transparent",border:"none",
@@ -522,7 +569,7 @@ function TradingJournal() {
           <div style={S.nav}>
             {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"],["portfolio","◈ Portfolio"],["scanner","⌕ Scanner"]].map(([v,l])=>(
               <button key={v} onClick={()=>{
-                if (v==="add") requireUnlock(()=>{setForm(blank());setView("add");});
+                if (v==="add") goToAdd();
                 else setView(v);
               }} style={{...S.navBtn,
                 ...(view===v||((view==="detail"||view==="edit")&&v==="journal")?S.navBtnActive:{})}}>
@@ -559,10 +606,30 @@ function TradingJournal() {
                 <div style={{fontSize:48,marginBottom:16}}>📊</div>
                 <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:20,color:"#eee0bf",marginBottom:8}}>No trades yet</div>
                 <div style={{color:"#5a6b88",fontSize:13,marginBottom:24}}>Start logging your trades to see advanced analytics</div>
-                <button style={S.primaryBtn} onClick={()=>requireUnlock(()=>{setForm(blank());setView("add");})}>Log First Trade</button>
+                <button style={S.primaryBtn} onClick={goToAdd}>Log First Trade</button>
               </div>
             ) : (
               <>
+                {riskLimits.breached && (
+                  <div style={{
+                    marginBottom:14,padding:"16px 18px",borderRadius:10,
+                    background:`linear-gradient(135deg, ${R}, #5c2c26)`,
+                    border:`1px solid ${R}`,
+                    boxShadow:"0 4px 16px rgba(138,67,57,0.35)",
+                    display:"flex",alignItems:"center",gap:14
+                  }}>
+                    <div style={{fontSize:26,lineHeight:1}}>🛑</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontFamily:"'Cinzel',serif",fontSize:12,letterSpacing:2,color:"#fff",textTransform:"uppercase",fontWeight:700}}>Loss Limit Hit · Trading Locked</div>
+                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:15,color:"#f4e9d8",marginTop:4}}>
+                        {riskLimits.dayBreached && `Down ${riskLimits.dayPct.toFixed(1)}% today (limit -${DAILY_LOSS_LIMIT_PCT}%). `}
+                        {riskLimits.weekBreached && `Down ${riskLimits.weekPct.toFixed(1)}% this week (limit -${WEEKLY_LOSS_LIMIT_PCT}%). `}
+                        No more trades — step away and come back with a clear head.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {metrics.streakType === "loss" && metrics.streak >= 3 && (
                   <div style={{
                     marginBottom:14,padding:"14px 18px",borderRadius:10,
@@ -819,7 +886,22 @@ function TradingJournal() {
           </div>
         )}
 
-        {(view==="add"||view==="edit") && (
+        {(view==="add"||view==="edit") && (view==="add" && riskLimits.breached ? (
+          <div style={S.page}>
+            <div style={{...S.card, borderColor:R+"66", textAlign:"center", padding:"48px 24px"}}>
+              <div style={{fontSize:44,marginBottom:16}}>🛑</div>
+              <div style={{fontFamily:"'Cinzel',serif",fontSize:13,letterSpacing:2,color:R,textTransform:"uppercase",fontWeight:700,marginBottom:12}}>
+                Trading Locked · {riskLimits.dayBreached ? "Daily" : "Weekly"} Loss Limit Hit
+              </div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:17,color:"#eee0bf",maxWidth:440,margin:"0 auto 24px",lineHeight:1.5}}>
+                {riskLimits.dayBreached && `Down ${riskLimits.dayPct.toFixed(1)}% today (limit -${DAILY_LOSS_LIMIT_PCT}%). `}
+                {riskLimits.weekBreached && `Down ${riskLimits.weekPct.toFixed(1)}% this week (limit -${WEEKLY_LOSS_LIMIT_PCT}%). `}
+                No more trades until it resets. Step away and review your rules.
+              </div>
+              <button style={S.ghostBtn} onClick={()=>setView("dashboard")}>Back to Dashboard</button>
+            </div>
+          </div>
+        ) : (
           <div style={S.page}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:28,color:"#eee0bf",marginBottom:6,letterSpacing:0.5}}>
               {view==="edit"?"Edit Trade":"Log New Trade"}
@@ -954,7 +1036,7 @@ function TradingJournal() {
               <button disabled={saving} style={S.ghostBtn} onClick={()=>{if(view==="edit"){setView("detail");}else{setView("journal");}}}>Cancel</button>
             </div>
           </div>
-        )}
+        ))}
 
         {view==="detail" && selected && (
           <div style={S.page}>
