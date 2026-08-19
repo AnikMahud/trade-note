@@ -29,7 +29,7 @@
       "exitAt": null,
       "exitReason": null,
       "lastPrice": 182.02,
-      "lastCheckedAt": "2026-08-19T16:20:10.604Z"
+      "lastCheckedAt": "2026-08-19T16:22:12.388Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -343,8 +343,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 37.62,
-      "lastCheckedAt": "2026-08-19T16:20:10.604Z"
+      "lastPrice": 37.53,
+      "lastCheckedAt": "2026-08-19T16:22:12.388Z"
     },
     {
       "id": "WDAY-2026-08-13T18:52:13.893Z",
@@ -358,8 +358,23 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 199.9,
-      "lastCheckedAt": "2026-08-19T16:20:10.604Z"
+      "lastPrice": 199.91,
+      "lastCheckedAt": "2026-08-19T16:22:12.388Z"
+    },
+    {
+      "id": "HOOD-2026-08-19T16:22:12.388Z",
+      "ticker": "HOOD",
+      "entryPrice": 98.66,
+      "entryAt": "2026-08-19T16:22:12.388Z",
+      "stopPrice": 87.27,
+      "oneRLevel": 110.05,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 98.66,
+      "lastCheckedAt": "2026-08-19T16:22:12.388Z"
     }
   ]
 }
