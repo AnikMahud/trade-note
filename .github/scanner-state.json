@@ -28,8 +28,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 180.9,
-      "lastCheckedAt": "2026-08-19T19:38:10.199Z"
+      "lastPrice": 180.88,
+      "lastCheckedAt": "2026-08-19T19:40:12.085Z"
     },
     {
       "id": "EXC-2026-07-22T20:00:00.000Z",
@@ -343,8 +343,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 36.63,
-      "lastCheckedAt": "2026-08-19T19:38:10.199Z"
+      "lastPrice": 36.51,
+      "lastCheckedAt": "2026-08-19T19:40:12.085Z"
     },
     {
       "id": "WDAY-2026-08-13T18:52:13.893Z",
@@ -358,8 +358,8 @@
       "exitPrice": null,
       "exitAt": null,
       "exitReason": null,
-      "lastPrice": 199.31,
-      "lastCheckedAt": "2026-08-19T19:38:10.199Z"
+      "lastPrice": 199.05,
+      "lastCheckedAt": "2026-08-19T19:40:12.085Z"
     },
     {
       "id": "HOOD-2026-08-19T16:22:12.388Z",
@@ -390,6 +390,21 @@
       "exitReason": "Below 20-EMA",
       "lastPrice": 137.91,
       "lastCheckedAt": "2026-08-19T19:38:10.199Z"
+    },
+    {
+      "id": "CDW-2026-08-19T19:40:12.085Z",
+      "ticker": "CDW",
+      "entryPrice": 137.47,
+      "entryAt": "2026-08-19T19:40:12.085Z",
+      "stopPrice": 118.01,
+      "oneRLevel": 156.93,
+      "beActive": false,
+      "status": "OPEN",
+      "exitPrice": null,
+      "exitAt": null,
+      "exitReason": null,
+      "lastPrice": 137.47,
+      "lastCheckedAt": "2026-08-19T19:40:12.085Z"
     }
   ]
 }
