@@ -28,8 +28,8 @@ export default async function handler(req, res) {
 
   const text =
     event === "open"
-      ? "Market is open — dip-buy scanner is live for today."
-      : "Market is closed — scanning paused until tomorrow.";
+      ? "Market is open."
+      : "Market is closed.";
 
   const r = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: "POST",
