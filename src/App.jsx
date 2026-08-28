@@ -201,6 +201,8 @@ function TradingJournal() {
   const [form, setForm] = useState(blank());
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState({ symbol: "", dir: "All", result: "All", setup: "All" });
+  const [journalMode, setJournalMode] = useState("daily"); // "daily" | "monthly" | "calendar"
+  const [journalFocusMonth, setJournalFocusMonth] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
@@ -825,63 +827,87 @@ function TradingJournal() {
 
         {view==="journal" && (
           <div style={S.page}>
-            <div style={S.filterRow}>
-              <input placeholder="Symbol…" value={filter.symbol} onChange={e=>setFilter(p=>({...p,symbol:e.target.value}))} style={S.filterInput}/>
-              {[{k:"dir",opts:["All","Long","Short"]},{k:"result",opts:["All","Win","Loss"]},{k:"setup",opts:["All",...SETUPS]}].map(({k,opts})=>(
-                <select key={k} value={filter[k]} onChange={e=>setFilter(p=>({...p,[k]:e.target.value}))} style={S.filterSelect}>
-                  {opts.map(o=><option key={o} value={o}>{o}</option>)}
-                </select>
+            <div style={{display:"flex",gap:4,background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:24,padding:4,marginBottom:16,width:"fit-content"}}>
+              {["daily","monthly","calendar"].map(m=>(
+                <button key={m} onClick={()=>setJournalMode(m)} style={{
+                  background: journalMode===m ? "#1c2c45" : "transparent",
+                  border:"none",borderRadius:20,padding:"8px 18px",cursor:"pointer",
+                  color: journalMode===m ? "#eee0bf" : "#7e8aa4",
+                  fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:journalMode===m?700:600,
+                  textTransform:"capitalize",transition:"all 0.15s"
+                }}>{m}</button>
               ))}
-              <span style={{marginLeft:"auto",fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
-              <button onClick={()=>exportCsv(filtered)} title="Export filtered trades to CSV" style={{
-                background:"transparent",border:`1px solid ${GOLD}55`,borderRadius:6,
-                padding:"7px 12px",color:GOLD,fontSize:10,cursor:"pointer",
-                fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase",fontWeight:600
-              }}>↓ Export</button>
             </div>
 
-            {filtered.length===0 ? (
-              <div style={S.empty}>
-                <div style={{fontSize:36,marginBottom:12}}>📂</div>
-                <div style={{color:"#5a6b88",fontSize:13}}>No trades match your filters</div>
-              </div>
-            ) : (
-              <div style={S.tableWrap}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      {["Date","Symbol","Dir","Setup","Entry","Exit","Size","P&L","R","Grade","Emotion",""].map(h=>(
-                        <th key={h} style={S.th}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(t=>{
-                      const p = parseFloat(t.pnl)||0;
-                      return (
-                        <tr key={t.id} style={S.tr} onClick={()=>{setSelected(t);setView("detail");}} onMouseEnter={e=>e.currentTarget.style.background="#16243c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <td style={{...S.td,...S.tdMono}}>{t.date}</td>
-                          <td style={{...S.td,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"#eee0bf"}}>{t.symbol}</td>
-                          <td style={{...S.td}}><span style={{...S.dirBadge,background:t.direction==="Long"?"rgba(0,229,160,0.1)":"rgba(255,69,96,0.1)",color:t.direction==="Long"?G:R}}>{t.direction}</span></td>
-                          <td style={{...S.td,color:"#7a8aa8",fontSize:11}}>{t.setup}</td>
-                          <td style={{...S.td,...S.tdMono}}>{t.entry?`$${parseFloat(t.entry).toFixed(2)}`:"-"}</td>
-                          <td style={{...S.td,...S.tdMono}}>{t.exit?`$${parseFloat(t.exit).toFixed(2)}`:"-"}</td>
-                          <td style={{...S.td,...S.tdMono}}>{t.size||"-"}</td>
-                          <td style={{...S.td,...S.tdMono,color:pnlColor(p),fontWeight:700}}>{fmt$(p)}</td>
-                          <td style={{...S.td,...S.tdMono,color:t.rMultiple?pnlColor(parseFloat(t.rMultiple)):"#4a5a78"}}>{t.rMultiple?fmtN(t.rMultiple)+"R":"-"}</td>
-                          <td style={{...S.td}}><span style={{...S.gradeBadge,...gradeStyle(t.grade)}}>{t.grade}</span></td>
-                          <td style={{...S.td,fontSize:11,color:"#5a6b88"}}>{t.emotion}</td>
-                          <td style={{...S.td,textAlign:"right"}}>
-                            {(t.screenshots||[]).length > 0 && (
-                              <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace"}}>📷 {t.screenshots.length}</span>
-                            )}
-                          </td>
+            {journalMode==="daily" && (
+              <>
+                <div style={S.filterRow}>
+                  <input placeholder="Symbol…" value={filter.symbol} onChange={e=>setFilter(p=>({...p,symbol:e.target.value}))} style={S.filterInput}/>
+                  {[{k:"dir",opts:["All","Long","Short"]},{k:"result",opts:["All","Win","Loss"]},{k:"setup",opts:["All",...SETUPS]}].map(({k,opts})=>(
+                    <select key={k} value={filter[k]} onChange={e=>setFilter(p=>({...p,[k]:e.target.value}))} style={S.filterSelect}>
+                      {opts.map(o=><option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ))}
+                  <span style={{marginLeft:"auto",fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
+                  <button onClick={()=>exportCsv(filtered)} title="Export filtered trades to CSV" style={{
+                    background:"transparent",border:`1px solid ${GOLD}55`,borderRadius:6,
+                    padding:"7px 12px",color:GOLD,fontSize:10,cursor:"pointer",
+                    fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase",fontWeight:600
+                  }}>↓ Export</button>
+                </div>
+
+                {filtered.length===0 ? (
+                  <div style={S.empty}>
+                    <div style={{fontSize:36,marginBottom:12}}>📂</div>
+                    <div style={{color:"#5a6b88",fontSize:13}}>No trades match your filters</div>
+                  </div>
+                ) : (
+                  <div style={S.tableWrap}>
+                    <table style={S.table}>
+                      <thead>
+                        <tr>
+                          {["Date","Symbol","Dir","Setup","Entry","Exit","Size","P&L","R","Grade","Emotion",""].map(h=>(
+                            <th key={h} style={S.th}>{h}</th>
+                          ))}
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {filtered.map(t=>{
+                          const p = parseFloat(t.pnl)||0;
+                          return (
+                            <tr key={t.id} style={S.tr} onClick={()=>{setSelected(t);setView("detail");}} onMouseEnter={e=>e.currentTarget.style.background="#16243c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <td style={{...S.td,...S.tdMono}}>{t.date}</td>
+                              <td style={{...S.td,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"#eee0bf"}}>{t.symbol}</td>
+                              <td style={{...S.td}}><span style={{...S.dirBadge,background:t.direction==="Long"?"rgba(0,229,160,0.1)":"rgba(255,69,96,0.1)",color:t.direction==="Long"?G:R}}>{t.direction}</span></td>
+                              <td style={{...S.td,color:"#7a8aa8",fontSize:11}}>{t.setup}</td>
+                              <td style={{...S.td,...S.tdMono}}>{t.entry?`$${parseFloat(t.entry).toFixed(2)}`:"-"}</td>
+                              <td style={{...S.td,...S.tdMono}}>{t.exit?`$${parseFloat(t.exit).toFixed(2)}`:"-"}</td>
+                              <td style={{...S.td,...S.tdMono}}>{t.size||"-"}</td>
+                              <td style={{...S.td,...S.tdMono,color:pnlColor(p),fontWeight:700}}>{fmt$(p)}</td>
+                              <td style={{...S.td,...S.tdMono,color:t.rMultiple?pnlColor(parseFloat(t.rMultiple)):"#4a5a78"}}>{t.rMultiple?fmtN(t.rMultiple)+"R":"-"}</td>
+                              <td style={{...S.td}}><span style={{...S.gradeBadge,...gradeStyle(t.grade)}}>{t.grade}</span></td>
+                              <td style={{...S.td,fontSize:11,color:"#5a6b88"}}>{t.emotion}</td>
+                              <td style={{...S.td,textAlign:"right"}}>
+                                {(t.screenshots||[]).length > 0 && (
+                                  <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace"}}>📷 {t.screenshots.length}</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+
+            {journalMode==="monthly" && (
+              <MonthlyJournalList trades={trades} onViewMonth={(y,m)=>{ setJournalFocusMonth(`${y}-${m}`); setJournalMode("calendar"); }}/>
+            )}
+
+            {journalMode==="calendar" && (
+              <CalendarJournalView trades={trades} focusMonth={journalFocusMonth}/>
             )}
           </div>
         )}
@@ -1380,6 +1406,279 @@ function CalendarHeatmap({ trades }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MonthlyJournalList({ trades, onViewMonth }) {
+  const rows = useMemo(() => {
+    const map = {};
+    trades.forEach(t => {
+      if (!t.date) return;
+      const key = t.date.slice(0, 7); // YYYY-MM
+      if (!map[key]) map[key] = { pnl: 0, count: 0, wins: 0 };
+      map[key].pnl += parseFloat(t.pnl) || 0;
+      map[key].count += 1;
+      if ((parseFloat(t.pnl) || 0) > 0) map[key].wins += 1;
+    });
+    return Object.entries(map)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([key, d]) => {
+        const [y, m] = key.split("-").map(Number);
+        const label = new Date(y, m - 1, 1).toLocaleString("en", { month: "long", year: "numeric" });
+        return { key, y, m: m - 1, label, ...d, winRate: d.count ? (d.wins / d.count) * 100 : 0 };
+      });
+  }, [trades]);
+
+  if (!rows.length) return (
+    <div style={styles.empty}>
+      <div style={{fontSize:36,marginBottom:12}}>🗓️</div>
+      <div style={{color:"#5a6b88",fontSize:13}}>No trades yet</div>
+    </div>
+  );
+
+  return (
+    <div style={styles.tableWrap}>
+      <table style={styles.table}>
+        <thead>
+          <tr>{["Month","Trades","Win Rate","Net P&L",""].map(h=><th key={h} style={styles.th}>{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.key} style={styles.tr} onClick={()=>onViewMonth(r.y, r.m)}
+              onMouseEnter={e=>e.currentTarget.style.background="#16243c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <td style={{...styles.td,fontFamily:"'Manrope',sans-serif",fontWeight:700,color:"#eee0bf"}}>{r.label}</td>
+              <td style={{...styles.td,...styles.tdMono}}>{r.count}</td>
+              <td style={{...styles.td,...styles.tdMono,color:r.winRate>=50?G:R}}>{r.winRate.toFixed(0)}%</td>
+              <td style={{...styles.td,...styles.tdMono,color:pnlColor(r.pnl),fontWeight:700}}>{fmt$(r.pnl)}</td>
+              <td style={{...styles.td,textAlign:"right",color:GOLD,fontSize:11,fontFamily:"'Cinzel',serif",letterSpacing:1,textTransform:"uppercase"}}>View →</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CalendarStripWeekdays({ trades, weekCount = 20 }) {
+  const data = useMemo(() => {
+    const map = {};
+    trades.forEach(t => {
+      if (!t.date) return;
+      map[t.date] = (map[t.date] || 0) + (parseFloat(t.pnl) || 0);
+    });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - (weekCount - 1) * 7);
+    while (start.getDay() !== 1) start.setDate(start.getDate() - 1);
+    const weeks = [];
+    const cur = new Date(start);
+    for (let w = 0; w < weekCount; w++) {
+      const col = [];
+      for (let i = 0; i < 5; i++) { // Mon..Fri
+        const iso = cur.toISOString().slice(0, 10);
+        col.push({ iso, pnl: map[iso], future: cur > today });
+        cur.setDate(cur.getDate() + 1);
+      }
+      cur.setDate(cur.getDate() + 2); // skip Sat, Sun
+      weeks.push(col);
+    }
+    const vals = Object.values(map).filter(v => v !== 0);
+    const max = vals.length ? Math.max(...vals.map(Math.abs)) : 1;
+    return { weeks, max };
+  }, [trades, weekCount]);
+
+  const cellSize = 13, gap = 3;
+  const color = (pnl) => {
+    if (pnl === undefined) return "#14223a";
+    if (pnl === 0) return "#1c2c45";
+    const t = Math.min(1, Math.abs(pnl) / data.max);
+    const intensity = 0.25 + 0.75 * t;
+    return pnl > 0 ? `rgba(165,178,133,${intensity})` : `rgba(138,67,57,${intensity})`;
+  };
+
+  const months = [];
+  let lastMonth = -1;
+  data.weeks.forEach((col, wi) => {
+    const m = new Date(col[0].iso).getMonth();
+    if (m !== lastMonth) {
+      months.push({ wi, label: new Date(col[0].iso).toLocaleString("en", { month: "short" }) });
+      lastMonth = m;
+    }
+  });
+
+  return (
+    <div style={{overflowX:"auto",padding:"4px 0"}}>
+      <div style={{display:"flex",gap:6,minWidth:280}}>
+        <div style={{display:"flex",flexDirection:"column",gap,fontSize:9,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace",paddingTop:18}}>
+          {["Mon","Tue","Wed","Thu","Fri"].map((d,i)=>(
+            <div key={i} style={{height:cellSize,lineHeight:`${cellSize}px`}}>{d}</div>
+          ))}
+        </div>
+        <div>
+          <div style={{display:"flex",gap,height:14,marginBottom:4,fontSize:9,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>
+            {data.weeks.map((_, wi) => {
+              const m = months.find(x => x.wi === wi);
+              return <div key={wi} style={{width:cellSize,textAlign:"left"}}>{m ? m.label : ""}</div>;
+            })}
+          </div>
+          <div style={{display:"flex",gap}}>
+            {data.weeks.map((col, wi) => (
+              <div key={wi} style={{display:"flex",flexDirection:"column",gap}}>
+                {col.map((d, di) => (
+                  <div key={di}
+                    title={d.future ? "" : `${d.iso}${d.pnl !== undefined ? " · " + (d.pnl >= 0 ? "+" : "") + "$" + d.pnl.toFixed(2) : " · no trade"}`}
+                    style={{
+                      width:cellSize,height:cellSize,borderRadius:3,
+                      background: d.future ? "transparent" : color(d.pnl),
+                      border: d.future ? "1px dashed #1c2c45" : "1px solid rgba(0,0,0,0.15)"
+                    }}/>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MonthCalendarGrid({ year, month, dayMap }) {
+  const monthLabel = new Date(year, month, 1).toLocaleString("en", { month: "long" });
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0..Sun=6
+  const gridStart = new Date(year, month, 1 - firstDow);
+  const weekCount = Math.ceil((firstDow + daysInMonth) / 7);
+
+  const weeks = [];
+  const cur = new Date(gridStart);
+  for (let w = 0; w < weekCount; w++) {
+    const days = [];
+    for (let i = 0; i < 5; i++) { // Mon..Fri
+      const inMonth = cur.getMonth() === month;
+      const iso = cur.toISOString().slice(0, 10);
+      days.push({ date: cur.getDate(), inMonth, data: inMonth ? dayMap[iso] : null });
+      cur.setDate(cur.getDate() + 1);
+    }
+    cur.setDate(cur.getDate() + 2); // skip Sat/Sun
+    const weekPnl = days.reduce((a, d) => a + (d.inMonth && d.data ? d.data.pnl : 0), 0);
+    const weekTrades = days.reduce((a, d) => a + (d.inMonth && d.data ? d.data.count : 0), 0);
+    weeks.push({ days, weekPnl, weekTrades });
+  }
+
+  const cellStyle = (d) => {
+    if (!d.inMonth) return { background:"transparent", border:"1px solid transparent" };
+    if (!d.data) return { background:"#121e34", border:"1px solid #1c2c45" };
+    const positive = d.data.pnl >= 0;
+    return {
+      background: positive ? "rgba(165,178,133,0.10)" : "rgba(138,67,57,0.12)",
+      border: `1px solid ${positive ? "rgba(165,178,133,0.4)" : "rgba(138,67,57,0.45)"}`
+    };
+  };
+
+  return (
+    <div>
+      <div style={{
+        fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,
+        fontSize:24,color:"#eee0bf",marginBottom:12,letterSpacing:0.5
+      }}>{monthLabel}, {year}</div>
+
+      <div style={{overflowX:"auto"}}>
+        <div style={{minWidth:560}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(5, 1fr) 1fr",gap:6,marginBottom:6}}>
+            {["Mon","Tue","Wed","Thu","Fri","Week"].map(h=>(
+              <div key={h} style={{
+                fontSize:10,color:GOLD,letterSpacing:2,textTransform:"uppercase",
+                fontFamily:"'Cinzel',serif",fontWeight:600,textAlign:h==="Week"?"right":"left",padding:"0 4px"
+              }}>{h}</div>
+            ))}
+          </div>
+
+          {weeks.map((w, wi) => (
+            <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(5, 1fr) 1fr",gap:6,marginBottom:6}}>
+              {w.days.map((d, di) => (
+                <div key={di} style={{...cellStyle(d),borderRadius:8,minHeight:64,padding:"8px 9px",display:"flex",flexDirection:"column"}}>
+                  {d.inMonth && <>
+                    <span style={{fontSize:11,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>{d.date}</span>
+                    {d.data && <>
+                      <span style={{marginTop:"auto",fontSize:13,fontWeight:700,color:pnlColor(d.data.pnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(d.data.pnl)}</span>
+                      <span style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{d.data.count} trade{d.data.count!==1?"s":""}</span>
+                    </>}
+                  </>}
+                </div>
+              ))}
+              <div style={{
+                borderRadius:8,minHeight:64,padding:"8px 9px",
+                background: w.weekTrades>0 ? (w.weekPnl>=0 ? "rgba(165,178,133,0.06)" : "rgba(138,67,57,0.08)") : "transparent",
+                border:`1px solid ${w.weekTrades>0 ? "#26385a" : "transparent"}`,
+                display:"flex",flexDirection:"column",alignItems:"flex-end",justifyContent:"center"
+              }}>
+                {w.weekTrades>0 && <>
+                  <span style={{fontSize:13,fontWeight:700,color:pnlColor(w.weekPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(w.weekPnl)}</span>
+                  <span style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{w.weekTrades} trade{w.weekTrades!==1?"s":""}</span>
+                </>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarJournalView({ trades, focusMonth }) {
+  const dayMap = useMemo(() => {
+    const map = {};
+    trades.forEach(t => {
+      if (!t.date) return;
+      if (!map[t.date]) map[t.date] = { pnl: 0, count: 0 };
+      map[t.date].pnl += parseFloat(t.pnl) || 0;
+      map[t.date].count += 1;
+    });
+    return map;
+  }, [trades]);
+
+  const months = useMemo(() => {
+    const now = new Date();
+    let earliest = now;
+    trades.forEach(t => {
+      if (!t.date) return;
+      const d = new Date(t.date + "T00:00:00");
+      if (d < earliest) earliest = d;
+    });
+    const list = [];
+    let y = now.getFullYear(), m = now.getMonth();
+    const endY = earliest.getFullYear(), endM = earliest.getMonth();
+    while (y > endY || (y === endY && m >= endM)) {
+      list.push({ year: y, month: m });
+      m--; if (m < 0) { m = 11; y--; }
+    }
+    return list;
+  }, [trades]);
+
+  const monthRefs = useRef({});
+  useEffect(() => {
+    if (!focusMonth) return;
+    const el = monthRefs.current[focusMonth];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focusMonth]);
+
+  return (
+    <div>
+      <div style={{...styles.card,marginBottom:20,padding:16}}>
+        <div style={styles.cardHeader}>
+          <span style={styles.cardTitle}>Overview</span>
+          <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>weekdays · daily P&L</span>
+        </div>
+        <CalendarStripWeekdays trades={trades}/>
+      </div>
+
+      {months.map(({ year, month }) => (
+        <div key={`${year}-${month}`} ref={el => { monthRefs.current[`${year}-${month}`] = el; }} style={{marginBottom:28}}>
+          <MonthCalendarGrid year={year} month={month} dayMap={dayMap}/>
+        </div>
+      ))}
     </div>
   );
 }
