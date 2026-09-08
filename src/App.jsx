@@ -1,19 +1,21 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
-  LineChart, Line, BarChart, Bar, ComposedChart, Area, XAxis, YAxis, Tooltip,
+  LineChart, Line, BarChart, Bar, ComposedChart, Area, PieChart, Pie, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell, CartesianGrid
 } from "recharts";
 import { loadTrades, saveTrade, saveAll, removeTrade, useCloud } from "./storage.js";
 import { getAuth, clearAuth, login, authFetch, scopedKey } from "./auth.js";
 
-const G = "#a5b285";   // sage olive — wins/positive
-const R = "#8a4339";   // oxblood — losses/negative
-const GOLD = "#c6a44c"; // brass — brand accent
-// Brighter variants of G/R for text sitting directly on dark chart tooltips —
-// the muted brand oxblood (R) has ~2.5:1 contrast on #0e1a2e, well under
-// readable. These are for text only; bars/badges keep the muted brand tones.
-const G_TEXT = "#a9e08f";
-const R_TEXT = "#f0897a";
+// Night-mode palette: true-black ground, vivid emerald/coral for P&L,
+// brightened amber accent — replaces the earlier muted navy/sage/oxblood
+// theme for a punchier, higher-contrast "premium dark fintech" look.
+const G = "#34d399";   // emerald — wins/positive
+const R = "#f87171";   // coral — losses/negative
+const GOLD = "#e2a63d"; // amber — brand accent
+// G/R are already vivid enough for tooltip text at full contrast on the
+// near-black chart backgrounds, so these just alias through.
+const G_TEXT = G;
+const R_TEXT = R;
 
 const DAILY_LOSS_LIMIT_PCT = 2;   // % of equity at start of day
 const WEEKLY_LOSS_LIMIT_PCT = 5;  // % of equity at start of week (Monday)
@@ -66,11 +68,11 @@ function ChartTooltip({ active, payload, label, nameKey }) {
   const heading = nameKey ? (p.payload?.[nameKey] ?? label) : label;
   return (
     <div style={{
-      background:"#0c1626", border:`1px solid ${positive ? "#33502f" : "#5a332c"}`,
+      background:"#0d0d0d", border:`1px solid ${positive ? "#1f4a3a" : "#5c2323"}`,
       borderRadius:8, padding:"9px 13px", boxShadow:"0 10px 28px rgba(0,0,0,0.5)",
       fontFamily:"'JetBrains Mono',monospace",
     }}>
-      {heading != null && <div style={{fontSize:10,color:"#9caac4",marginBottom:4,letterSpacing:0.5}}>{heading}</div>}
+      {heading != null && <div style={{fontSize:10,color:"#a3a3a3",marginBottom:4,letterSpacing:0.5}}>{heading}</div>}
       <div style={{fontSize:15,fontWeight:700,color: positive ? G_TEXT : R_TEXT}}>
         {positive ? "+" : "-"}${Math.abs(val).toFixed(2)}
       </div>
@@ -124,7 +126,7 @@ function LoginScreen({ onSuccess }) {
   return (
     <div style={{
       minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",
-      background:"radial-gradient(ellipse at top, #14233e 0%, #0b1424 55%, #07101c 100%)",
+      background:"radial-gradient(circle at 18% -8%, rgba(226,166,61,0.16), transparent 42%), radial-gradient(circle at 88% -6%, rgba(52,211,153,0.10), transparent 42%), #0a0a0a",
       fontFamily:"'Manrope',sans-serif",padding:20
     }}>
       <style>{`
@@ -134,7 +136,7 @@ function LoginScreen({ onSuccess }) {
         .tn-login-shake { animation: tnLoginShake 0.4s ease; }
       `}</style>
       <div className={shake?"tn-login-shake":""} style={{
-        background:"#121e34",border:"1px solid #1c2c45",borderRadius:14,
+        background:"#161616",border:"1px solid #262626",borderRadius:14,
         padding:"36px 32px",width:340,maxWidth:"100%",textAlign:"center",
         boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
       }}>
@@ -145,7 +147,7 @@ function LoginScreen({ onSuccess }) {
             onChange={e=>{setUsername(e.target.value);setErr("");}}
             onKeyDown={e=>{if(e.key==="Enter")submit();}}
             style={{
-              background:"#0e1a2e",border:"1px solid #26385a",borderRadius:8,
+              background:"#121212",border:"1px solid #2e2e2e",borderRadius:8,
               padding:"12px 14px",color:"#eee0bf",fontSize:14,
               fontFamily:"'JetBrains Mono',monospace",outline:"none"
             }}
@@ -155,7 +157,7 @@ function LoginScreen({ onSuccess }) {
             onChange={e=>{setPassword(e.target.value);setErr("");}}
             onKeyDown={e=>{if(e.key==="Enter")submit();}}
             style={{
-              background:"#0e1a2e",border:`1px solid ${err?R:"#26385a"}`,borderRadius:8,
+              background:"#121212",border:`1px solid ${err?R:"#2e2e2e"}`,borderRadius:8,
               padding:"12px 14px",color:"#eee0bf",fontSize:14,
               fontFamily:"'JetBrains Mono',monospace",outline:"none"
             }}
@@ -182,7 +184,7 @@ function Brand({size="header", showLock=false, onLock}) {
         border:`1px solid ${GOLD}`,
         transform:"rotate(45deg)",
         display:"flex",alignItems:"center",justifyContent:"center",
-        background:"rgba(201,168,64,0.04)"
+        background:"rgba(226,166,61,0.04)"
       }}>
         <span style={{
           transform:"rotate(-45deg)",
@@ -204,7 +206,7 @@ function Brand({size="header", showLock=false, onLock}) {
             }}>Trade Note</span>
             <div style={{width:30,height:1,background:GOLD,opacity:0.5}}/>
           </div>
-          <div style={{fontSize:9,color:"#4a5a78",letterSpacing:3,fontFamily:"'JetBrains Mono',monospace",marginTop:8}}>EST · MMXXVI</div>
+          <div style={{fontSize:9,color:"#6e6e6e",letterSpacing:3,fontFamily:"'JetBrains Mono',monospace",marginTop:8}}>EST · MMXXVI</div>
         </>
       ) : (
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",marginLeft:10,position:"absolute",left:64,top:10}}>
@@ -214,8 +216,8 @@ function Brand({size="header", showLock=false, onLock}) {
       )}
       {showLock && (
         <button onClick={onLock} title="Lock" style={{
-          position:"absolute",right:24,top:14,background:"transparent",border:"1px solid #26385a",
-          borderRadius:6,padding:"5px 10px",color:"#7a8aa8",fontSize:10,cursor:"pointer",
+          position:"absolute",right:24,top:14,background:"transparent",border:"1px solid #2e2e2e",
+          borderRadius:6,padding:"5px 10px",color:"#868686",fontSize:10,cursor:"pointer",
           fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
         }}>LOCK</button>
       )}
@@ -474,8 +476,18 @@ function TradingJournal() {
     const setupPerf = Object.entries(setM).sort(([,a],[,b])=>b.pnl-a.pnl)
       .map(([s,d])=>({s,pnl:parseFloat(d.pnl.toFixed(2)),n:d.n,wr:((d.w/d.n)*100).toFixed(0)}));
 
+    // Logging streak: consecutive calendar days with at least one trade logged,
+    // counting back from today (or yesterday if today hasn't been logged yet —
+    // the day isn't over, so that alone shouldn't break the streak).
+    const tradeDateSet = new Set(sorted.map(t => t.date));
+    const toDateKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const cursor = new Date(); cursor.setHours(0,0,0,0);
+    if (!tradeDateSet.has(toDateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+    let loggingStreak = 0;
+    while (tradeDateSet.has(toDateKey(cursor))) { loggingStreak++; cursor.setDate(cursor.getDate() - 1); }
+
     return {totalPnl,winRate,profitFactor,avgWin,avgLoss,expectancy,bestTrade,worstTrade,
-      equity,maxDD,mxW,mxL,streak,streakType,daily,symbols,setupPerf,
+      equity,maxDD,mxW,mxL,streak,streakType,daily,symbols,setupPerf,loggingStreak,
       total:sorted.length,nWins:wins.length,nLosses:losses.length};
   }, [trades]);
 
@@ -539,7 +551,7 @@ function TradingJournal() {
   const formAmt = formFullPos != null ? formFullPos * (formLevPct / 100) : null;
 
   if (!auth) return <LoginScreen onSuccess={setAuthState}/>;
-  if (!loaded) return <div style={S.root}><div style={{color:"#5a6b88",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
+  if (!loaded) return <div style={S.root}><div style={{color:"#787878",margin:"auto",fontFamily:"monospace"}}>Loading…</div></div>;
 
   return (
     <div style={isMobile ? {...S.root, height:"auto", minHeight:"100dvh", overflow:"visible"} : S.root}>
@@ -547,32 +559,32 @@ function TradingJournal() {
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Cinzel:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        html, body { background: radial-gradient(ellipse at top, #14233e 0%, #0b1424 55%, #07101c 100%); background-attachment: fixed; overscroll-behavior:none; -webkit-overflow-scrolling:touch; color:#eee0bf; }
-        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0e1a2e; }
-        ::-webkit-scrollbar-thumb { background: #2a3a55; border-radius: 2px; }
+        html, body { background: radial-gradient(circle at 18% -8%, rgba(226,166,61,0.16), transparent 42%), radial-gradient(circle at 88% -6%, rgba(52,211,153,0.10), transparent 42%), #0a0a0a; background-attachment: fixed; overscroll-behavior:none; -webkit-overflow-scrolling:touch; color:#eee0bf; }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #2c2c2c; border-radius: 2px; }
         input, textarea, select { outline: none; }
-        input::placeholder, textarea::placeholder { color: #4a5a78; }
+        input::placeholder, textarea::placeholder { color: #6e6e6e; }
         @keyframes tnPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
       `}</style>
 
       {isMobile ? (
         <>
-          <div style={{position:"sticky",top:0,zIndex:50,background:"#0e1a2e",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}>
+          <div style={{position:"sticky",top:0,zIndex:50,background:"#121212",boxShadow:"0 2px 8px rgba(0,0,0,0.4)"}}>
             <div style={{...S.header, justifyContent:"center", position:"relative"}}>
               <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:42,width:"auto",objectFit:"contain"}}/>
               <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",display:"flex",alignItems:"center",gap:8}}>
                 {metrics && <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:pnlColor(metrics.totalPnl),fontWeight:700}}>{fmt$(metrics.totalPnl)}</span>}
                 <span title={syncedAt?`Synced ${syncedAt.toLocaleTimeString()} — same data on every device`:"Syncing…"}
-                  style={{width:6,height:6,borderRadius:"50%",background:syncedAt?"#a5b285":"#4a5a78",flexShrink:0}}/>
+                  style={{width:6,height:6,borderRadius:"50%",background:syncedAt?G:"#6e6e6e",flexShrink:0}}/>
                 <button onClick={logout} title={`Log out (${auth.label})`} style={{
-                  background:"transparent",border:"1px solid #26385a",borderRadius:6,
-                  padding:"5px 8px",color:"#7a8aa8",fontSize:12,cursor:"pointer",
+                  background:"transparent",border:"1px solid #2e2e2e",borderRadius:6,
+                  padding:"5px 8px",color:"#868686",fontSize:12,cursor:"pointer",
                   fontFamily:"'JetBrains Mono',monospace"
                 }}>⎋</button>
               </div>
             </div>
             <div style={{
-              display:"flex",background:"#0e1a2e",borderBottom:"1px solid #14223a",
+              display:"flex",background:"#121212",borderBottom:"1px solid #202020",
               justifyContent:"space-around",flexShrink:0
             }}>
               {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"],["portfolio","Portfolio"],["notes","Notes"]].map(([v,l])=>{
@@ -584,7 +596,7 @@ function TradingJournal() {
                   }} style={{
                     flex:1,background:"transparent",border:"none",
                     padding:"10px 2px",
-                    color:active?"#eee0bf":"#7e8aa4",
+                    color:active?"#eee0bf":"#8a8a8a",
                     fontSize:10,fontFamily:"'Cinzel',serif",fontWeight:active?600:500,
                     cursor:"pointer",letterSpacing:1.5,whiteSpace:"nowrap",textTransform:"uppercase",
                     borderBottom:`2px solid ${active?GOLD:"transparent"}`
@@ -615,16 +627,16 @@ function TradingJournal() {
               {fmt$(metrics.totalPnl)}
             </span>}
             <span title="Shared via Notion — same data on every device" style={{
-              fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:syncedAt?"#4a5a78":"#7a8aa8",
+              fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:syncedAt?"#6e6e6e":"#868686",
               display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap"
             }}>
-              <span style={{width:6,height:6,borderRadius:"50%",background:syncedAt?"#a5b285":"#4a5a78",flexShrink:0}}/>
+              <span style={{width:6,height:6,borderRadius:"50%",background:syncedAt?G:"#6e6e6e",flexShrink:0}}/>
               {syncedAt ? `synced ${syncedAt.toLocaleTimeString()}` : "syncing…"}
             </span>
-            <span style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap"}}>{auth.label}</span>
+            <span style={{fontSize:10,color:"#787878",fontFamily:"'JetBrains Mono',monospace",whiteSpace:"nowrap"}}>{auth.label}</span>
             <button onClick={logout} title="Log out" style={{
-              background:"transparent",border:"1px solid #26385a",borderRadius:6,
-              padding:"5px 10px",color:"#7a8aa8",fontSize:10,cursor:"pointer",
+              background:"transparent",border:"1px solid #2e2e2e",borderRadius:6,
+              padding:"5px 10px",color:"#868686",fontSize:10,cursor:"pointer",
               fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
             }}>LOG OUT</button>
           </div>
@@ -638,7 +650,7 @@ function TradingJournal() {
               <div style={S.empty}>
                 <div style={{fontSize:48,marginBottom:16}}>📊</div>
                 <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:20,color:"#eee0bf",marginBottom:8}}>No trades yet</div>
-                <div style={{color:"#5a6b88",fontSize:13,marginBottom:24}}>Start logging your trades to see advanced analytics</div>
+                <div style={{color:"#787878",fontSize:13,marginBottom:24}}>Start logging your trades to see advanced analytics</div>
                 <button style={S.primaryBtn} onClick={goToAdd}>Log First Trade</button>
               </div>
             ) : (
@@ -646,9 +658,9 @@ function TradingJournal() {
                 {riskLimits.breached && (
                   <div style={{
                     marginBottom:14,padding:"16px 18px",borderRadius:10,
-                    background:`linear-gradient(135deg, ${R}, #5c2c26)`,
+                    background:`linear-gradient(135deg, ${R}, #5c1f1f)`,
                     border:`1px solid ${R}`,
-                    boxShadow:"0 4px 16px rgba(138,67,57,0.35)",
+                    boxShadow:"0 4px 16px rgba(248,113,113,0.35)",
                     display:"flex",alignItems:"center",gap:14
                   }}>
                     <div style={{fontSize:26,lineHeight:1}}>🛑</div>
@@ -666,7 +678,7 @@ function TradingJournal() {
                 {metrics.streakType === "loss" && metrics.streak >= 3 && (
                   <div style={{
                     marginBottom:14,padding:"14px 18px",borderRadius:10,
-                    background:"linear-gradient(135deg, rgba(138,67,57,0.18), rgba(138,67,57,0.04))",
+                    background:"linear-gradient(135deg, rgba(248,113,113,0.18), rgba(248,113,113,0.04))",
                     border:`1px solid ${R}66`,
                     display:"flex",alignItems:"center",gap:14
                   }}>
@@ -685,32 +697,72 @@ function TradingJournal() {
                 )}
 
                 <div style={S.kpiRow}>
-                  {[
-                    {label:"Total P&L", value:fmt$(metrics.totalPnl), color:pnlColor(metrics.totalPnl), sub:`${metrics.total} trades`},
-                    {label:"Win Rate", value:`${metrics.winRate.toFixed(1)}%`, color:metrics.winRate>=50?G:R, sub:`${metrics.nWins}W / ${metrics.nLosses}L`},
-                    {label:"Profit Factor", value:metrics.profitFactor>=999?"∞":metrics.profitFactor.toFixed(2), color:metrics.profitFactor>=1?G:R, sub:"Gross P / Gross L"},
-                    {label:"Expectancy", value:fmt$(metrics.expectancy), color:pnlColor(metrics.expectancy), sub:"Per trade avg"},
-                  ].map(k=>(
-                    <TiltCard key={k.label} style={S.kpiCard}>
-                      <div style={S.kpiLabel}>{k.label}</div>
-                      <div style={{...S.kpiValue,color:k.color}}>{k.value}</div>
-                      <div style={S.kpiSub}>{k.sub}</div>
-                    </TiltCard>
-                  ))}
+                  <TiltCard style={S.kpiCard}>
+                    <div style={S.kpiLabel}>Total P&L</div>
+                    <div style={{...S.kpiValue,color:pnlColor(metrics.totalPnl)}}>{fmt$(metrics.totalPnl)}</div>
+                    <div style={S.kpiSub}>{metrics.total} trades</div>
+                    {metrics.equity.length>1 && (
+                      <div style={{position:"absolute",right:14,top:14,width:60,height:26,pointerEvents:"none"}}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={metrics.equity}>
+                            <Line type="monotone" dataKey="eq" stroke={pnlColor(metrics.totalPnl)} strokeWidth={1.5} dot={false} isAnimationActive={false}/>
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </TiltCard>
+
+                  <TiltCard style={S.kpiCard}>
+                    <div style={S.kpiLabel}>Win Rate</div>
+                    <div style={{...S.kpiValue,color:metrics.winRate>=50?G:R}}>{metrics.winRate.toFixed(1)}%</div>
+                    <div style={S.kpiSub}>{metrics.nWins}W / {metrics.nLosses}L</div>
+                    {(metrics.nWins+metrics.nLosses)>0 && (
+                      <div style={{position:"absolute",right:12,top:10,width:42,height:42,pointerEvents:"none"}}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={[{v:metrics.nWins||0.0001},{v:metrics.nLosses||0.0001}]} dataKey="v"
+                              innerRadius={13} outerRadius={20} startAngle={90} endAngle={-270}
+                              stroke="none" isAnimationActive={false}>
+                              <Cell fill={G}/>
+                              <Cell fill={R}/>
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </TiltCard>
+
+                  <TiltCard style={S.kpiCard}>
+                    <div style={S.kpiLabel}>Profit Factor</div>
+                    <div style={{...S.kpiValue,color:metrics.profitFactor>=1?G:R}}>{metrics.profitFactor>=999?"∞":metrics.profitFactor.toFixed(2)}</div>
+                    <div style={S.kpiSub}>Gross P / Gross L</div>
+                  </TiltCard>
+
+                  <TiltCard style={S.kpiCard}>
+                    <div style={S.kpiLabel}>Expectancy</div>
+                    <div style={{...S.kpiValue,color:pnlColor(metrics.expectancy)}}>{fmt$(metrics.expectancy)}</div>
+                    <div style={S.kpiSub}>Per trade avg</div>
+                  </TiltCard>
+
+                  <TiltCard style={S.kpiCard}>
+                    <div style={S.kpiLabel}>Logging Streak</div>
+                    <div style={{...S.kpiValue,color:GOLD}}>{metrics.loggingStreak} {metrics.loggingStreak===1?"day":"days"}</div>
+                    <div style={S.kpiSub}>{metrics.loggingStreak>0 ? "Keep it going" : "Log a trade today"}</div>
+                  </TiltCard>
                 </div>
 
                 {leaderboard.length > 0 && (
                   <div style={{...S.card, marginBottom:16, borderColor:GOLD+"33"}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Leaderboard</span>
-                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>this week · this month</span>
+                      <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>this week · this month</span>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
                       {leaderboard.map((u,i)=>(
                         <div key={u.tag} style={{
                           display:"flex",alignItems:"center",gap:14,padding:"10px 12px",borderRadius:8,flexWrap:"wrap",
-                          background: u.tag===auth.tag ? "rgba(198,164,76,0.08)" : "transparent",
-                          border:`1px solid ${i===0?GOLD+"55":"#1c2c45"}`
+                          background: u.tag===auth.tag ? "rgba(226,166,61,0.08)" : "transparent",
+                          border:`1px solid ${i===0?GOLD+"55":"#262626"}`
                         }}>
                           <span style={{fontSize:17,width:22,textAlign:"center",flexShrink:0}}>{i===0?"🥇":i===1?"🥈":"🥉"}</span>
                           <div style={{flex:"1 1 100px",minWidth:0,fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:13,color:"#eee0bf"}}>
@@ -721,14 +773,14 @@ function TradingJournal() {
                           ) : (
                             <>
                               <div style={{textAlign:"right"}}>
-                                <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Week</div>
+                                <div style={{fontSize:9,color:"#787878",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Week</div>
                                 <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.weekPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.weekPnl)}</div>
-                                <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.weekTrades} trade{u.weekTrades!==1?"s":""}</div>
+                                <div style={{fontSize:10,color:"#787878",fontFamily:"'JetBrains Mono',monospace"}}>{u.weekTrades} trade{u.weekTrades!==1?"s":""}</div>
                               </div>
                               <div style={{textAlign:"right"}}>
-                                <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Month</div>
+                                <div style={{fontSize:9,color:"#787878",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Month</div>
                                 <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.monthPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.monthPnl)}</div>
-                                <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.monthTrades} trade{u.monthTrades!==1?"s":""}</div>
+                                <div style={{fontSize:10,color:"#787878",fontFamily:"'JetBrains Mono',monospace"}}>{u.monthTrades} trade{u.monthTrades!==1?"s":""}</div>
                               </div>
                             </>
                           )}
@@ -747,7 +799,7 @@ function TradingJournal() {
                   <div style={{...S.card, flex:"2 1 320px", minWidth:280}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Calendar Heatmap</span>
-                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>last 12 weeks · daily P&L</span>
+                      <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>last 12 weeks · daily P&L</span>
                     </div>
                     <CalendarHeatmap trades={trades}/>
                   </div>
@@ -759,7 +811,7 @@ function TradingJournal() {
                   <div style={{...S.card, flex:"2 1 320px", minWidth:280}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Equity Curve</span>
-                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>cumulative P&L</span>
+                      <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>cumulative P&L</span>
                     </div>
                     <ResponsiveContainer width="100%" height={180}>
                       <ComposedChart data={metrics.equity} margin={{top:5,right:10,left:0,bottom:0}}>
@@ -769,10 +821,10 @@ function TradingJournal() {
                             <stop offset="95%" stopColor={G} stopOpacity={0.02}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1c2c45" vertical={false}/>
-                        <XAxis dataKey="date" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
-                        <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
-                        <ReferenceLine y={0} stroke="#2a3a55" strokeDasharray="3 3"/>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false}/>
+                        <XAxis dataKey="date" tick={{fill:"#6e6e6e",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
+                        <YAxis tick={{fill:"#6e6e6e",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
+                        <ReferenceLine y={0} stroke="#2c2c2c" strokeDasharray="3 3"/>
                         <Tooltip content={<ChartTooltip/>} cursor={{stroke:GOLD,strokeWidth:1,strokeDasharray:"3 3"}}/>
                         <Area type="monotone" dataKey="eq" stroke="none" fill="url(#eqGrad)" fillOpacity={1} isAnimationActive={false}/>
                         <Line type="monotone" dataKey="eq" stroke={G} strokeWidth={2} dot={false} activeDot={{r:4,fill:G,strokeWidth:0}}/>
@@ -783,25 +835,25 @@ function TradingJournal() {
                   <div style={{...S.card, flex:"1.5 1 280px", minWidth:260}}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Daily P&L</span>
-                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>last 30 days</span>
+                      <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>last 30 days</span>
                     </div>
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={metrics.daily} margin={{top:5,right:5,left:0,bottom:0}}>
                         <defs>
                           <linearGradient id="dailyBarG" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#c3d6a0" stopOpacity={1}/>
+                            <stop offset="0%" stopColor="#8ff5cf" stopOpacity={1}/>
                             <stop offset="100%" stopColor={G} stopOpacity={0.7}/>
                           </linearGradient>
                           <linearGradient id="dailyBarR" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#c96f5f" stopOpacity={1}/>
+                            <stop offset="0%" stopColor="#ffb0aa" stopOpacity={1}/>
                             <stop offset="100%" stopColor={R} stopOpacity={0.8}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1c2c45" vertical={false}/>
-                        <XAxis dataKey="date" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
-                        <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
-                        <ReferenceLine y={0} stroke="#2a3a55"/>
-                        <Tooltip content={<ChartTooltip/>} cursor={{fill:"rgba(198,164,76,0.08)"}}/>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false}/>
+                        <XAxis dataKey="date" tick={{fill:"#6e6e6e",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
+                        <YAxis tick={{fill:"#6e6e6e",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
+                        <ReferenceLine y={0} stroke="#2c2c2c"/>
+                        <Tooltip content={<ChartTooltip/>} cursor={{fill:"rgba(226,166,61,0.08)"}}/>
                         <Bar dataKey="pnl" radius={[3,3,0,0]}>
                           {metrics.daily.map((d,i)=><Cell key={i} fill={d.pnl>=0?"url(#dailyBarG)":"url(#dailyBarR)"}/>)}
                         </Bar>
@@ -824,8 +876,8 @@ function TradingJournal() {
                         {l:"Max Consec. Losses", v:metrics.mxL, c:R},
                         {l:"Current Streak", v:`${metrics.streak} ${metrics.streakType}`, c:metrics.streakType==="win"?G:R},
                       ].map(m=>(
-                        <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #14223a"}}>
-                          <span style={{fontSize:11,color:"#7e8aa4",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
+                        <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #202020"}}>
+                          <span style={{fontSize:11,color:"#8a8a8a",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
                           <span style={{fontSize:12,color:m.c,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{m.v}</span>
                         </div>
                       ))}
@@ -839,17 +891,17 @@ function TradingJournal() {
                         <defs>
                           <linearGradient id="symBarG" x1="0" y1="0" x2="1" y2="0">
                             <stop offset="0%" stopColor={G} stopOpacity={0.7}/>
-                            <stop offset="100%" stopColor="#c3d6a0" stopOpacity={1}/>
+                            <stop offset="100%" stopColor="#8ff5cf" stopOpacity={1}/>
                           </linearGradient>
                           <linearGradient id="symBarR" x1="0" y1="0" x2="1" y2="0">
                             <stop offset="0%" stopColor={R} stopOpacity={0.8}/>
-                            <stop offset="100%" stopColor="#c96f5f" stopOpacity={1}/>
+                            <stop offset="100%" stopColor="#ffb0aa" stopOpacity={1}/>
                           </linearGradient>
                         </defs>
-                        <XAxis type="number" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`}/>
+                        <XAxis type="number" tick={{fill:"#6e6e6e",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`}/>
                         <YAxis type="category" dataKey="s" tick={{fill:"#bbb29a",fontSize:11,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} width={55}/>
-                        <ReferenceLine x={0} stroke="#2a3a55"/>
-                        <Tooltip content={<ChartTooltip nameKey="s"/>} cursor={{fill:"rgba(198,164,76,0.08)"}}/>
+                        <ReferenceLine x={0} stroke="#2c2c2c"/>
+                        <Tooltip content={<ChartTooltip nameKey="s"/>} cursor={{fill:"rgba(226,166,61,0.08)"}}/>
                         <Bar dataKey="pnl" radius={[0,3,3,0]}>
                           {metrics.symbols.map((d,i)=><Cell key={i} fill={d.pnl>=0?"url(#symBarG)":"url(#symBarR)"}/>)}
                         </Bar>
@@ -861,16 +913,16 @@ function TradingJournal() {
                     <div style={S.cardHeader}><span style={S.cardTitle}>Setup Performance</span></div>
                     <div style={{overflowY:"auto",maxHeight:210,marginTop:4}}>
                       {metrics.setupPerf.map(s=>(
-                        <div key={s.s} style={{padding:"6px 0",borderBottom:"1px solid #14223a"}}>
+                        <div key={s.s} style={{padding:"6px 0",borderBottom:"1px solid #202020"}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                             <span style={{fontSize:11,color:"#cec2a3",fontFamily:"'Manrope',sans-serif",fontWeight:600}}>{s.s}</span>
                             <span style={{fontSize:11,color:pnlColor(s.pnl),fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{fmt$(s.pnl)}</span>
                           </div>
                           <div style={{display:"flex",gap:12}}>
-                            <span style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{s.n} trades</span>
+                            <span style={{fontSize:10,color:"#787878",fontFamily:"'JetBrains Mono',monospace"}}>{s.n} trades</span>
                             <span style={{fontSize:10,color:parseFloat(s.wr)>=50?G:R,fontFamily:"'JetBrains Mono',monospace"}}>{s.wr}% WR</span>
                           </div>
-                          <div style={{marginTop:4,height:2,background:"#1c2c45",borderRadius:1}}>
+                          <div style={{marginTop:4,height:2,background:"#262626",borderRadius:1}}>
                             <div style={{width:`${s.wr}%`,height:"100%",background:parseFloat(s.wr)>=50?G:R,borderRadius:1,opacity:0.6}}/>
                           </div>
                         </div>
@@ -885,12 +937,12 @@ function TradingJournal() {
 
         {view==="journal" && (
           <div style={S.page}>
-            <div style={{display:"flex",gap:4,background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:24,padding:4,marginBottom:16,width:"fit-content"}}>
+            <div style={{display:"flex",gap:4,background:"#121212",border:"1px solid #262626",borderRadius:24,padding:4,marginBottom:16,width:"fit-content"}}>
               {["daily","monthly","calendar"].map(m=>(
                 <button key={m} onClick={()=>setJournalMode(m)} style={{
-                  background: journalMode===m ? "#1c2c45" : "transparent",
+                  background: journalMode===m ? "#262626" : "transparent",
                   border:"none",borderRadius:20,padding:"8px 18px",cursor:"pointer",
-                  color: journalMode===m ? "#eee0bf" : "#7e8aa4",
+                  color: journalMode===m ? "#eee0bf" : "#8a8a8a",
                   fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:journalMode===m?700:600,
                   textTransform:"capitalize",transition:"all 0.15s"
                 }}>{m}</button>
@@ -906,7 +958,7 @@ function TradingJournal() {
                       {opts.map(o=><option key={o} value={o}>{o}</option>)}
                     </select>
                   ))}
-                  <span style={{marginLeft:"auto",fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
+                  <span style={{marginLeft:"auto",fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>{filtered.length} trade{filtered.length!==1?"s":""}</span>
                   <button onClick={()=>exportCsv(filtered)} title="Export filtered trades to CSV" style={{
                     background:"transparent",border:`1px solid ${GOLD}55`,borderRadius:6,
                     padding:"7px 12px",color:GOLD,fontSize:10,cursor:"pointer",
@@ -917,7 +969,7 @@ function TradingJournal() {
                 {filtered.length===0 ? (
                   <div style={S.empty}>
                     <div style={{fontSize:36,marginBottom:12}}>📂</div>
-                    <div style={{color:"#5a6b88",fontSize:13}}>No trades match your filters</div>
+                    <div style={{color:"#787878",fontSize:13}}>No trades match your filters</div>
                   </div>
                 ) : (
                   <div style={S.tableWrap}>
@@ -933,18 +985,18 @@ function TradingJournal() {
                         {filtered.map(t=>{
                           const p = parseFloat(t.pnl)||0;
                           return (
-                            <tr key={t.id} style={S.tr} onClick={()=>{setSelected(t);setView("detail");}} onMouseEnter={e=>e.currentTarget.style.background="#16243c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            <tr key={t.id} style={S.tr} onClick={()=>{setSelected(t);setView("detail");}} onMouseEnter={e=>e.currentTarget.style.background="#1c1c1c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                               <td style={{...S.td,...S.tdMono}}>{t.date}</td>
                               <td style={{...S.td,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,color:"#eee0bf"}}>{t.symbol}</td>
-                              <td style={{...S.td}}><span style={{...S.dirBadge,background:t.direction==="Long"?"rgba(0,229,160,0.1)":"rgba(255,69,96,0.1)",color:t.direction==="Long"?G:R}}>{t.direction}</span></td>
-                              <td style={{...S.td,color:"#7a8aa8",fontSize:11}}>{t.setup}</td>
+                              <td style={{...S.td}}><span style={{...S.dirBadge,background:t.direction==="Long"?"rgba(52,211,153,0.1)":"rgba(248,113,113,0.1)",color:t.direction==="Long"?G:R}}>{t.direction}</span></td>
+                              <td style={{...S.td,color:"#868686",fontSize:11}}>{t.setup}</td>
                               <td style={{...S.td,...S.tdMono}}>{t.entry?`$${parseFloat(t.entry).toFixed(2)}`:"-"}</td>
                               <td style={{...S.td,...S.tdMono}}>{t.exit?`$${parseFloat(t.exit).toFixed(2)}`:"-"}</td>
                               <td style={{...S.td,...S.tdMono}}>{t.size||"-"}</td>
                               <td style={{...S.td,...S.tdMono,color:pnlColor(p),fontWeight:700}}>{fmt$(p)}</td>
-                              <td style={{...S.td,...S.tdMono,color:t.rMultiple?pnlColor(parseFloat(t.rMultiple)):"#4a5a78"}}>{t.rMultiple?fmtN(t.rMultiple)+"R":"-"}</td>
+                              <td style={{...S.td,...S.tdMono,color:t.rMultiple?pnlColor(parseFloat(t.rMultiple)):"#6e6e6e"}}>{t.rMultiple?fmtN(t.rMultiple)+"R":"-"}</td>
                               <td style={{...S.td}}><span style={{...S.gradeBadge,...gradeStyle(t.grade)}}>{t.grade}</span></td>
-                              <td style={{...S.td,fontSize:11,color:"#5a6b88"}}>{t.emotion}</td>
+                              <td style={{...S.td,fontSize:11,color:"#787878"}}>{t.emotion}</td>
                               <td style={{...S.td,textAlign:"right"}}>
                                 {(t.screenshots||[]).length > 0 && (
                                   <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace"}}>📷 {t.screenshots.length}</span>
@@ -998,7 +1050,7 @@ function TradingJournal() {
               <div style={{...S.card, marginBottom:18, borderColor: GOLD+"44"}}>
                 <div style={S.cardHeader}>
                   <span style={S.cardTitle}>Pre-Trade Checklist</span>
-                  <span style={{fontSize:10,color: allRulesChecked?G:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
+                  <span style={{fontSize:10,color: allRulesChecked?G:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1}}>
                     {Object.values(checkedRules).filter(Boolean).length}/{strategyRules.length} {allRulesChecked?"✓ ready":"required"}
                   </span>
                 </div>
@@ -1007,8 +1059,8 @@ function TradingJournal() {
                     <label key={r.id} style={{
                       display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",
                       padding:"8px 10px",borderRadius:6,
-                      background: checkedRules[r.id]?"rgba(165,178,133,0.08)":"transparent",
-                      border:`1px solid ${checkedRules[r.id]?G+"44":"#1c2c45"}`,
+                      background: checkedRules[r.id]?"rgba(52,211,153,0.08)":"transparent",
+                      border:`1px solid ${checkedRules[r.id]?G+"44":"#262626"}`,
                       transition:"all 0.15s"
                     }}>
                       <input type="checkbox" checked={!!checkedRules[r.id]}
@@ -1028,9 +1080,9 @@ function TradingJournal() {
                 <div style={{display:"flex",gap:8}}>
                   {["Long","Short"].map(d=>(
                     <button key={d} onClick={()=>setForm(p=>({...p,direction:d}))} style={{...S.toggleBtn,flex:1,
-                      background:form.direction===d?(d==="Long"?"rgba(0,229,160,0.15)":"rgba(255,69,96,0.15)"):"transparent",
-                      color:form.direction===d?(d==="Long"?G:R):"#5a6b88",
-                      borderColor:form.direction===d?(d==="Long"?G:R):"#26385a"}}>{d}</button>
+                      background:form.direction===d?(d==="Long"?"rgba(52,211,153,0.15)":"rgba(248,113,113,0.15)"):"transparent",
+                      color:form.direction===d?(d==="Long"?G:R):"#787878",
+                      borderColor:form.direction===d?(d==="Long"?G:R):"#2e2e2e"}}>{d}</button>
                   ))}
                 </div>
               </Field>
@@ -1044,8 +1096,8 @@ function TradingJournal() {
                 </Field>
               </div>
               <Field label="Amount Invested (Margin)">
-                <div style={{...S.input,background:"#0a1220",border:"1px solid #1c2c45",color:GOLD,fontWeight:700,cursor:"default"}}>
-                  {formAmt != null ? fmtUSD(formAmt) : <span style={{color:"#4a5a78"}}>—</span>}
+                <div style={{...S.input,background:"#0d0d0d",border:"1px solid #262626",color:GOLD,fontWeight:700,cursor:"default"}}>
+                  {formAmt != null ? fmtUSD(formAmt) : <span style={{color:"#6e6e6e"}}>—</span>}
                 </div>
               </Field>
               <Field label="P&L ($) *"><input type="number" placeholder="+250.00 or -80.00" style={{...S.input,color:form.pnl?(parseFloat(form.pnl)>=0?G:R):"inherit"}} value={form.pnl} onChange={e=>setForm(p=>({...p,pnl:e.target.value}))}/></Field>
@@ -1060,8 +1112,8 @@ function TradingJournal() {
                 <div style={{display:"flex",gap:6}}>
                   {GRADES.map(g=>(
                     <button key={g} onClick={()=>setForm(p=>({...p,grade:g}))} style={{...S.toggleBtn,flex:1,fontSize:11,
-                      background:form.grade===g?"rgba(201,168,64,0.15)":"transparent",
-                      color:form.grade===g?GOLD:"#5a6b88",borderColor:form.grade===g?GOLD:"#26385a"}}>{g}</button>
+                      background:form.grade===g?"rgba(226,166,61,0.15)":"transparent",
+                      color:form.grade===g?GOLD:"#787878",borderColor:form.grade===g?GOLD:"#2e2e2e"}}>{g}</button>
                   ))}
                 </div>
               </Field>
@@ -1087,7 +1139,7 @@ function TradingJournal() {
                     {(form.screenshots||[]).map((src, i) => (
                       <div key={i} style={{position:"relative"}}>
                         <img src={src} alt={`shot-${i+1}`}
-                          style={{height:80,width:80,objectFit:"cover",borderRadius:6,border:"1px solid #26385a"}}
+                          style={{height:80,width:80,objectFit:"cover",borderRadius:6,border:"1px solid #2e2e2e"}}
                         />
                         <button onClick={()=>removeScreenshot(i)} title="Remove" style={{
                           position:"absolute",top:-6,right:-6,background:"#A56250",border:"none",
@@ -1127,7 +1179,7 @@ function TradingJournal() {
             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
               <button style={S.backBtn} onClick={()=>setView("journal")}>← Back</button>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:22,color:"#eee0bf"}}>{selected.symbol}</div>
-              <span style={{...S.dirBadge,background:selected.direction==="Long"?"rgba(0,229,160,0.1)":"rgba(255,69,96,0.1)",color:selected.direction==="Long"?G:R,fontSize:12,padding:"4px 10px"}}>{selected.direction}</span>
+              <span style={{...S.dirBadge,background:selected.direction==="Long"?"rgba(52,211,153,0.1)":"rgba(248,113,113,0.1)",color:selected.direction==="Long"?G:R,fontSize:12,padding:"4px 10px"}}>{selected.direction}</span>
               <span style={{marginLeft:"auto",fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:22,color:pnlColor(selected.pnl)}}>{fmt$(selected.pnl)}</span>
             </div>
 
@@ -1146,13 +1198,13 @@ function TradingJournal() {
                     {l:"Exit",v:selected.exit?`$${parseFloat(selected.exit).toFixed(4)}`:"-"},
                     {l:"Size",v:selected.size||"-"},
                     {l:"P&L",v:fmt$(selected.pnl),c:pnlColor(selected.pnl)},
-                    {l:"R-Multiple",v:selected.rMultiple?fmtN(selected.rMultiple)+"R":"-",c:selected.rMultiple?pnlColor(parseFloat(selected.rMultiple)):"#4a5a78"},
+                    {l:"R-Multiple",v:selected.rMultiple?fmtN(selected.rMultiple)+"R":"-",c:selected.rMultiple?pnlColor(parseFloat(selected.rMultiple)):"#6e6e6e"},
                     {l:"Setup",v:selected.setup||"-"},
                     {l:"Grade",v:selected.grade,c:GOLD},
                     {l:"Emotion",v:selected.emotion||"-"},
                   ].map(m=>(
-                    <div key={m.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #14223a"}}>
-                      <span style={{fontSize:12,color:"#7e8aa4",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
+                    <div key={m.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #202020"}}>
+                      <span style={{fontSize:12,color:"#8a8a8a",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
                       <span style={{fontSize:12,color:m.c||"#d6c89a",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{m.v}</span>
                     </div>
                   ))}
@@ -1170,21 +1222,21 @@ function TradingJournal() {
                   <div style={S.card}>
                     <div style={S.cardHeader}>
                       <span style={S.cardTitle}>Chart Screenshots</span>
-                      <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{selected.screenshots.length} {selected.screenshots.length===1?"image":"images"}</span>
+                      <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>{selected.screenshots.length} {selected.screenshots.length===1?"image":"images"}</span>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:selected.screenshots.length===1?"1fr":"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginTop:4}}>
                       {selected.screenshots.map((src, i) => (
                         <div key={i} onClick={()=>setLightbox({urls:selected.screenshots,index:i})}
                           style={{display:"block",lineHeight:0,cursor:"zoom-in"}}>
                           <img src={src} alt={`chart-${i+1}`} onError={onImgError}
-                            style={{width:"100%",borderRadius:6,border:"1px solid #1c2c45"}}/>
+                            style={{width:"100%",borderRadius:6,border:"1px solid #262626"}}/>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
                 {!selected.notes && (selected.screenshots||[]).length === 0 && (
-                  <div style={{...S.card,color:"#36465e",fontSize:13,fontFamily:"'Manrope',sans-serif"}}>No notes or screenshots attached.</div>
+                  <div style={{...S.card,color:"#3a3a3a",fontSize:13,fontFamily:"'Manrope',sans-serif"}}>No notes or screenshots attached.</div>
                 )}
               </div>
             </div>
@@ -1256,8 +1308,8 @@ function TradingJournal() {
         <div style={{
           position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",
           zIndex:2000,
-          background: toast.type==="ok" ? "rgba(0,229,160,0.12)" : toast.type==="err" ? "rgba(255,69,96,0.12)" : "#121e34",
-          border: `1px solid ${toast.type==="ok" ? G : toast.type==="err" ? R : "#26385a"}`,
+          background: toast.type==="ok" ? "rgba(52,211,153,0.12)" : toast.type==="err" ? "rgba(248,113,113,0.12)" : "#161616",
+          border: `1px solid ${toast.type==="ok" ? G : toast.type==="err" ? R : "#2e2e2e"}`,
           color: toast.type==="ok" ? G : toast.type==="err" ? R : "#cec2a3",
           padding:"12px 20px",borderRadius:8,
           fontSize:13,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,
@@ -1332,14 +1384,14 @@ function PeriodReport({ trades, style }) {
     <div style={{...styles.card, ...style}}>
       <div style={styles.cardHeader}>
         <span style={styles.cardTitle}>Period Report</span>
-        {from && to && <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{fmtRange(from)} – {fmtRange(to)}</span>}
+        {from && to && <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>{fmtRange(from)} – {fmtRange(to)}</span>}
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
         {[["thisWeek","This Week"],["lastWeek","Last Week"],["thisMonth","This Month"],["lastMonth","Last Month"],["custom","Custom"]].map(([k,l]) => (
           <button key={k} onClick={()=>setPeriod(k)} style={{...styles.toggleBtn,padding:"7px 10px",fontSize:11,
-            background: period===k ? "rgba(201,168,64,0.15)" : "transparent",
-            color: period===k ? GOLD : "#5a6b88",
-            borderColor: period===k ? GOLD : "#26385a"}}>{l}</button>
+            background: period===k ? "rgba(226,166,61,0.15)" : "transparent",
+            color: period===k ? GOLD : "#787878",
+            borderColor: period===k ? GOLD : "#2e2e2e"}}>{l}</button>
         ))}
       </div>
       {period === "custom" && (
@@ -1355,17 +1407,17 @@ function PeriodReport({ trades, style }) {
         </div>
       )}
       {!stats ? (
-        <div style={{color:"#5a6b88",fontSize:12,fontFamily:"'Manrope',sans-serif",padding:"8px 0"}}>Pick a from and to date.</div>
+        <div style={{color:"#787878",fontSize:12,fontFamily:"'Manrope',sans-serif",padding:"8px 0"}}>Pick a from and to date.</div>
       ) : (
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {[
             {l:"P&L", v:fmt$(stats.totalPnl), c:pnlColor(stats.totalPnl)},
             {l:"Entries", v:stats.count, c:"#eee0bf"},
-            {l:"Win Rate", v:stats.count ? stats.winRate.toFixed(1)+"%" : "-", c:stats.count && stats.winRate>=50?G:stats.count?R:"#4a5a78"},
-            {l:"Wins / Losses", v:`${stats.wins}W / ${stats.losses}L`, c:"#7e8aa4"},
+            {l:"Win Rate", v:stats.count ? stats.winRate.toFixed(1)+"%" : "-", c:stats.count && stats.winRate>=50?G:stats.count?R:"#6e6e6e"},
+            {l:"Wins / Losses", v:`${stats.wins}W / ${stats.losses}L`, c:"#8a8a8a"},
           ].map(m => (
-            <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #14223a"}}>
-              <span style={{fontSize:11,color:"#7e8aa4",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
+            <div key={m.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid #202020"}}>
+              <span style={{fontSize:11,color:"#8a8a8a",fontFamily:"'Manrope',sans-serif"}}>{m.l}</span>
               <span style={{fontSize:13,color:m.c,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{m.v}</span>
             </div>
           ))}
@@ -1407,11 +1459,11 @@ function CalendarHeatmap({ trades }) {
 
   const cellSize = 14, gap = 3;
   const color = (pnl) => {
-    if (pnl === undefined) return "#14223a";
-    if (pnl === 0) return "#1c2c45";
+    if (pnl === undefined) return "#202020";
+    if (pnl === 0) return "#262626";
     const t = Math.min(1, Math.abs(pnl) / data.max);
     const intensity = 0.25 + 0.75 * t;
-    return pnl > 0 ? `rgba(165,178,133,${intensity})` : `rgba(138,67,57,${intensity})`;
+    return pnl > 0 ? `rgba(52,211,153,${intensity})` : `rgba(248,113,113,${intensity})`;
   };
 
   const months = [];
@@ -1427,13 +1479,13 @@ function CalendarHeatmap({ trades }) {
   return (
     <div style={{overflowX:"auto",padding:"4px 0"}}>
       <div style={{display:"flex",gap:6,minWidth:280}}>
-        <div style={{display:"flex",flexDirection:"column",gap,fontSize:9,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace",paddingTop:18}}>
+        <div style={{display:"flex",flexDirection:"column",gap,fontSize:9,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace",paddingTop:18}}>
           {["M","T","W","T","F","S","S"].map((d,i)=>(
             <div key={i} style={{height:cellSize,lineHeight:`${cellSize}px`}}>{i%2===0?d:""}</div>
           ))}
         </div>
         <div>
-          <div style={{display:"flex",gap,height:14,marginBottom:4,fontSize:9,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>
+          <div style={{display:"flex",gap,height:14,marginBottom:4,fontSize:9,color:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace"}}>
             {data.weeks.map((_, wi) => {
               const m = months.find(x => x.wi === wi);
               return <div key={wi} style={{width:cellSize,textAlign:"left"}}>{m ? m.label : ""}</div>;
@@ -1448,17 +1500,17 @@ function CalendarHeatmap({ trades }) {
                     style={{
                       width:cellSize,height:cellSize,borderRadius:3,
                       background: d.future ? "transparent" : color(d.pnl),
-                      border: d.future ? "1px dashed #1c2c45" : "1px solid rgba(0,0,0,0.15)"
+                      border: d.future ? "1px dashed #262626" : "1px solid rgba(0,0,0,0.15)"
                     }}/>
                 ))}
               </div>
             ))}
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,fontSize:10,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:10,fontSize:10,color:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace"}}>
             <span>loss</span>
             <div style={{width:cellSize,height:cellSize,background:color(-data.max),borderRadius:3}}/>
             <div style={{width:cellSize,height:cellSize,background:color(-data.max*0.5),borderRadius:3}}/>
-            <div style={{width:cellSize,height:cellSize,background:"#1c2c45",borderRadius:3}}/>
+            <div style={{width:cellSize,height:cellSize,background:"#262626",borderRadius:3}}/>
             <div style={{width:cellSize,height:cellSize,background:color(data.max*0.5),borderRadius:3}}/>
             <div style={{width:cellSize,height:cellSize,background:color(data.max),borderRadius:3}}/>
             <span>win</span>
@@ -1492,7 +1544,7 @@ function MonthlyJournalList({ trades, onViewMonth }) {
   if (!rows.length) return (
     <div style={styles.empty}>
       <div style={{fontSize:36,marginBottom:12}}>🗓️</div>
-      <div style={{color:"#5a6b88",fontSize:13}}>No trades yet</div>
+      <div style={{color:"#787878",fontSize:13}}>No trades yet</div>
     </div>
   );
 
@@ -1505,7 +1557,7 @@ function MonthlyJournalList({ trades, onViewMonth }) {
         <tbody>
           {rows.map(r => (
             <tr key={r.key} style={styles.tr} onClick={()=>onViewMonth(r.y, r.m)}
-              onMouseEnter={e=>e.currentTarget.style.background="#16243c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              onMouseEnter={e=>e.currentTarget.style.background="#1c1c1c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
               <td style={{...styles.td,fontFamily:"'Manrope',sans-serif",fontWeight:700,color:"#eee0bf"}}>{r.label}</td>
               <td style={{...styles.td,...styles.tdMono}}>{r.count}</td>
               <td style={{...styles.td,...styles.tdMono,color:r.winRate>=50?G:R}}>{r.winRate.toFixed(0)}%</td>
@@ -1550,11 +1602,11 @@ function CalendarStripWeekdays({ trades, weekCount = 20 }) {
 
   const cellSize = 13, gap = 3;
   const color = (pnl) => {
-    if (pnl === undefined) return "#14223a";
-    if (pnl === 0) return "#1c2c45";
+    if (pnl === undefined) return "#202020";
+    if (pnl === 0) return "#262626";
     const t = Math.min(1, Math.abs(pnl) / data.max);
     const intensity = 0.25 + 0.75 * t;
-    return pnl > 0 ? `rgba(165,178,133,${intensity})` : `rgba(138,67,57,${intensity})`;
+    return pnl > 0 ? `rgba(52,211,153,${intensity})` : `rgba(248,113,113,${intensity})`;
   };
 
   const months = [];
@@ -1570,13 +1622,13 @@ function CalendarStripWeekdays({ trades, weekCount = 20 }) {
   return (
     <div style={{overflowX:"auto",padding:"4px 0"}}>
       <div style={{display:"flex",gap:6,minWidth:280}}>
-        <div style={{display:"flex",flexDirection:"column",gap,fontSize:9,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace",paddingTop:18}}>
+        <div style={{display:"flex",flexDirection:"column",gap,fontSize:9,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace",paddingTop:18}}>
           {["Mon","Tue","Wed","Thu","Fri"].map((d,i)=>(
             <div key={i} style={{height:cellSize,lineHeight:`${cellSize}px`}}>{d}</div>
           ))}
         </div>
         <div>
-          <div style={{display:"flex",gap,height:14,marginBottom:4,fontSize:9,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>
+          <div style={{display:"flex",gap,height:14,marginBottom:4,fontSize:9,color:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace"}}>
             {data.weeks.map((_, wi) => {
               const m = months.find(x => x.wi === wi);
               return <div key={wi} style={{width:cellSize,textAlign:"left"}}>{m ? m.label : ""}</div>;
@@ -1591,7 +1643,7 @@ function CalendarStripWeekdays({ trades, weekCount = 20 }) {
                     style={{
                       width:cellSize,height:cellSize,borderRadius:3,
                       background: d.future ? "transparent" : color(d.pnl),
-                      border: d.future ? "1px dashed #1c2c45" : "1px solid rgba(0,0,0,0.15)"
+                      border: d.future ? "1px dashed #262626" : "1px solid rgba(0,0,0,0.15)"
                     }}/>
                 ))}
               </div>
@@ -1628,11 +1680,11 @@ function MonthCalendarGrid({ year, month, dayMap }) {
 
   const cellStyle = (d) => {
     if (!d.inMonth) return { background:"transparent", border:"1px solid transparent" };
-    if (!d.data) return { background:"#121e34", border:"1px solid #1c2c45" };
+    if (!d.data) return { background:"#161616", border:"1px solid #262626" };
     const positive = d.data.pnl >= 0;
     return {
-      background: positive ? "rgba(165,178,133,0.10)" : "rgba(138,67,57,0.12)",
-      border: `1px solid ${positive ? "rgba(165,178,133,0.4)" : "rgba(138,67,57,0.45)"}`
+      background: positive ? "rgba(52,211,153,0.10)" : "rgba(248,113,113,0.12)",
+      border: `1px solid ${positive ? "rgba(52,211,153,0.4)" : "rgba(248,113,113,0.45)"}`
     };
   };
 
@@ -1659,23 +1711,23 @@ function MonthCalendarGrid({ year, month, dayMap }) {
               {w.days.map((d, di) => (
                 <div key={di} style={{...cellStyle(d),borderRadius:8,minHeight:64,padding:"8px 9px",display:"flex",flexDirection:"column"}}>
                   {d.inMonth && <>
-                    <span style={{fontSize:11,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace"}}>{d.date}</span>
+                    <span style={{fontSize:11,color:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace"}}>{d.date}</span>
                     {d.data && <>
                       <span style={{marginTop:"auto",fontSize:13,fontWeight:700,color:pnlColor(d.data.pnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(d.data.pnl)}</span>
-                      <span style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{d.data.count} trade{d.data.count!==1?"s":""}</span>
+                      <span style={{fontSize:9,color:"#787878",fontFamily:"'JetBrains Mono',monospace"}}>{d.data.count} trade{d.data.count!==1?"s":""}</span>
                     </>}
                   </>}
                 </div>
               ))}
               <div style={{
                 borderRadius:8,minHeight:64,padding:"8px 9px",
-                background: w.weekTrades>0 ? (w.weekPnl>=0 ? "rgba(165,178,133,0.06)" : "rgba(138,67,57,0.08)") : "transparent",
-                border:`1px solid ${w.weekTrades>0 ? "#26385a" : "transparent"}`,
+                background: w.weekTrades>0 ? (w.weekPnl>=0 ? "rgba(52,211,153,0.06)" : "rgba(248,113,113,0.08)") : "transparent",
+                border:`1px solid ${w.weekTrades>0 ? "#2e2e2e" : "transparent"}`,
                 display:"flex",flexDirection:"column",alignItems:"flex-end",justifyContent:"center"
               }}>
                 {w.weekTrades>0 && <>
                   <span style={{fontSize:13,fontWeight:700,color:pnlColor(w.weekPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(w.weekPnl)}</span>
-                  <span style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{w.weekTrades} trade{w.weekTrades!==1?"s":""}</span>
+                  <span style={{fontSize:9,color:"#787878",fontFamily:"'JetBrains Mono',monospace"}}>{w.weekTrades} trade{w.weekTrades!==1?"s":""}</span>
                 </>}
               </div>
             </div>
@@ -1728,7 +1780,7 @@ function CalendarJournalView({ trades, focusMonth }) {
       <div style={{...styles.card,marginBottom:20,padding:16}}>
         <div style={styles.cardHeader}>
           <span style={styles.cardTitle}>Overview</span>
-          <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>weekdays · daily P&L</span>
+          <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>weekdays · daily P&L</span>
         </div>
         <CalendarStripWeekdays trades={trades}/>
       </div>
@@ -1758,7 +1810,7 @@ function EquityCard({ ledger, trades, onAdd, onDelete }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div>
           <div style={{...styles.cardTitle, color:GOLD}}>Account Equity</div>
-          <div style={{fontSize:10,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace",marginTop:3,letterSpacing:1}}>{ledger.length} ledger entries · {trades.length} trades</div>
+          <div style={{fontSize:10,color:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace",marginTop:3,letterSpacing:1}}>{ledger.length} ledger entries · {trades.length} trades</div>
         </div>
         <button onClick={onAdd} style={{
           background:"transparent",border:`1px solid ${GOLD}66`,borderRadius:6,
@@ -1770,11 +1822,11 @@ function EquityCard({ ledger, trades, onAdd, onDelete }) {
       <div style={{
         display:"flex",alignItems:"baseline",gap:14,marginBottom:14,
         padding:"14px 18px",borderRadius:8,
-        background:"linear-gradient(135deg, rgba(198,164,76,0.10), rgba(198,164,76,0.02))",
+        background:"linear-gradient(135deg, rgba(226,166,61,0.10), rgba(226,166,61,0.02))",
         border:`1px solid ${GOLD}33`
       }}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:3,color:"#7e8aa4",textTransform:"uppercase"}}>Current Equity</div>
+          <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:3,color:"#8a8a8a",textTransform:"uppercase"}}>Current Equity</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:28,color:GOLD,marginTop:4,lineHeight:1}}>
             ${equity.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
           </div>
@@ -1791,16 +1843,16 @@ function EquityCard({ ledger, trades, onAdd, onDelete }) {
 
       {ledger.length > 0 && (
         <details style={{marginTop:8}}>
-          <summary style={{cursor:"pointer",fontSize:11,color:"#7e8aa4",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,padding:"4px 0"}}>
+          <summary style={{cursor:"pointer",fontSize:11,color:"#8a8a8a",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,padding:"4px 0"}}>
             ▸ history ({ledger.length})
           </summary>
           <div style={{marginTop:10,maxHeight:200,overflowY:"auto",overscrollBehavior:"contain"}}>
             {[...ledger].reverse().map(e => (
               <div key={e.id} style={{
                 display:"flex",alignItems:"center",gap:10,padding:"8px 6px",
-                borderBottom:"1px solid #1a221c",fontSize:12
+                borderBottom:"1px solid #202020",fontSize:12
               }}>
-                <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#7e8aa4",fontSize:11,width:80,flexShrink:0}}>{e.date}</span>
+                <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#8a8a8a",fontSize:11,width:80,flexShrink:0}}>{e.date}</span>
                 <span style={{
                   fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:1.5,textTransform:"uppercase",fontWeight:600,
                   color: e.type==="Deposit"?G:e.type==="Withdrawal"?R:GOLD,
@@ -1811,7 +1863,7 @@ function EquityCard({ ledger, trades, onAdd, onDelete }) {
                   {e.type==="Withdrawal"?"-":"+"}${(e.amount||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
                 </span>
                 <button onClick={()=>onDelete(e.id)} style={{
-                  background:"transparent",border:"1px solid #2a3a55",borderRadius:4,
+                  background:"transparent",border:"1px solid #2c2c2c",borderRadius:4,
                   width:22,height:22,color:R,fontSize:12,cursor:"pointer",lineHeight:1,
                   display:"flex",alignItems:"center",justifyContent:"center"
                 }}>×</button>
@@ -1826,8 +1878,8 @@ function EquityCard({ ledger, trades, onAdd, onDelete }) {
 
 function EquityStat({ label, value, color }) {
   return (
-    <div style={{padding:"10px 12px",border:"1px solid #1c2c45",borderRadius:6,background:"#0e1a2e"}}>
-      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:3}}>{label}</div>
+    <div style={{padding:"10px 12px",border:"1px solid #262626",borderRadius:6,background:"#121212"}}>
+      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#8a8a8a",textTransform:"uppercase",marginBottom:3}}>{label}</div>
       <div style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:14,color:color||"#eee0bf"}}>{value}</div>
     </div>
   );
@@ -1845,12 +1897,12 @@ function LedgerModal({ entry, onChange, onClose, onSave }) {
   return (
     <div onClick={onClose} style={{
       position:"fixed",inset:0,zIndex:1000,
-      background:"rgba(7,16,28,0.85)",backdropFilter:"blur(6px)",
+      background:"rgba(5,5,5,0.85)",backdropFilter:"blur(6px)",
       display:"flex",alignItems:"center",justifyContent:"center",padding:20,
       fontFamily:"'Manrope',sans-serif"
     }}>
       <div onClick={(e)=>e.stopPropagation()} style={{
-        background:"#121e34",border:"1px solid #1c2c45",borderRadius:14,
+        background:"#161616",border:"1px solid #262626",borderRadius:14,
         padding:24,width:"100%",maxWidth:380,
         boxShadow:"0 20px 60px rgba(0,0,0,0.5)"
       }}>
@@ -1859,14 +1911,14 @@ function LedgerModal({ entry, onChange, onClose, onSave }) {
 
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Type</div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#8a8a8a",textTransform:"uppercase",marginBottom:6}}>Type</div>
             <div style={{display:"flex",gap:6}}>
               {TYPES.map(t => (
                 <button key={t} onClick={()=>onChange({...entry,type:t})} style={{
                   flex:1,padding:"8px 4px",
-                  background: entry.type===t ? (t==="Deposit"?"rgba(165,178,133,0.15)":t==="Withdrawal"?"rgba(138,67,57,0.15)":"rgba(198,164,76,0.15)") : "transparent",
-                  border:`1px solid ${entry.type===t ? (t==="Deposit"?G:t==="Withdrawal"?R:GOLD) : "#26385a"}`,
-                  color: entry.type===t ? (t==="Deposit"?G:t==="Withdrawal"?R:GOLD) : "#7e8aa4",
+                  background: entry.type===t ? (t==="Deposit"?"rgba(52,211,153,0.15)":t==="Withdrawal"?"rgba(248,113,113,0.15)":"rgba(226,166,61,0.15)") : "transparent",
+                  border:`1px solid ${entry.type===t ? (t==="Deposit"?G:t==="Withdrawal"?R:GOLD) : "#2e2e2e"}`,
+                  color: entry.type===t ? (t==="Deposit"?G:t==="Withdrawal"?R:GOLD) : "#8a8a8a",
                   borderRadius:6,fontSize:10,cursor:"pointer",
                   fontFamily:"'Cinzel',serif",letterSpacing:1,textTransform:"uppercase",fontWeight:600
                 }}>{t}</button>
@@ -1875,30 +1927,30 @@ function LedgerModal({ entry, onChange, onClose, onSave }) {
           </div>
 
           <div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Date</div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#8a8a8a",textTransform:"uppercase",marginBottom:6}}>Date</div>
             <input type="date" value={entry.date} onChange={(e)=>onChange({...entry,date:e.target.value})} style={{
-              width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,
+              width:"100%",background:"#121212",border:"1px solid #262626",borderRadius:6,
               padding:"10px 12px",color:"#eee0bf",fontSize:14,fontFamily:"'JetBrains Mono',monospace"
             }}/>
           </div>
 
           <div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Amount ($)</div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#8a8a8a",textTransform:"uppercase",marginBottom:6}}>Amount ($)</div>
             <input type="number" autoFocus value={entry.amount} placeholder="0.00"
               onChange={(e)=>onChange({...entry,amount:e.target.value})}
               onKeyDown={(e)=>e.key==="Enter"&&submit()}
               style={{
-                width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,
+                width:"100%",background:"#121212",border:"1px solid #262626",borderRadius:6,
                 padding:"10px 12px",color:GOLD,fontSize:18,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"
               }}/>
           </div>
 
           <div>
-            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#7e8aa4",textTransform:"uppercase",marginBottom:6}}>Note (optional)</div>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:2,color:"#8a8a8a",textTransform:"uppercase",marginBottom:6}}>Note (optional)</div>
             <input value={entry.note} placeholder="e.g. Initial deposit, broker withdrawal..."
               onChange={(e)=>onChange({...entry,note:e.target.value})}
               style={{
-                width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,
+                width:"100%",background:"#121212",border:"1px solid #262626",borderRadius:6,
                 padding:"10px 12px",color:"#eee0bf",fontSize:13,fontFamily:"'Manrope',sans-serif"
               }}/>
           </div>
@@ -1906,8 +1958,8 @@ function LedgerModal({ entry, onChange, onClose, onSave }) {
 
         <div style={{display:"flex",gap:8,marginTop:20}}>
           <button onClick={onClose} disabled={busy} style={{
-            flex:1,background:"transparent",border:"1px solid #26385a",borderRadius:8,
-            padding:"11px",color:"#7e8aa4",fontWeight:600,fontSize:11,cursor:"pointer",
+            flex:1,background:"transparent",border:"1px solid #2e2e2e",borderRadius:8,
+            padding:"11px",color:"#8a8a8a",fontWeight:600,fontSize:11,cursor:"pointer",
             fontFamily:"'Cinzel',serif",letterSpacing:2,textTransform:"uppercase"
           }}>Cancel</button>
           <button onClick={submit} disabled={busy} style={{
@@ -2040,7 +2092,7 @@ function StrategyPage({ requireUnlock, showToast }) {
 
       <div style={{
         marginTop:20,padding:24,
-        background:"linear-gradient(135deg, rgba(201,168,64,0.08), rgba(201,168,64,0.02))",
+        background:"linear-gradient(135deg, rgba(226,166,61,0.08), rgba(226,166,61,0.02))",
         border:`1px solid ${GOLD}55`,borderRadius:12,textAlign:"center"
       }}>
         <div style={{fontSize:9,color:GOLD,letterSpacing:4,fontFamily:"'JetBrains Mono',monospace",marginBottom:10}}>KEY REMINDER</div>
@@ -2069,7 +2121,7 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
           fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,fontWeight:700
         }}>+ ADD</button>
       </div>
-      {loading && <div style={{fontSize:12,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>loading…</div>}
+      {loading && <div style={{fontSize:12,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>loading…</div>}
       <ol style={{listStyle:"none",padding:"0 4px 0 0",margin:0,display:"flex",flexDirection:"column",gap:10,maxHeight:380,overflowY:"auto",overscrollBehavior:"contain"}}>
         {items.map((it, i) => {
           const editing = editId === it.id;
@@ -2086,7 +2138,7 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
                       autoFocus value={draft}
                       onChange={(e)=>setDraft(e.target.value)}
                       style={{
-                        width:"100%",background:"#0e1a2e",border:`1px solid ${accent}55`,
+                        width:"100%",background:"#121212",border:`1px solid ${accent}55`,
                         borderRadius:6,padding:"8px 10px",color:"#eee0bf",
                         fontSize:13,fontFamily:"'Manrope',sans-serif",lineHeight:1.5,
                         minHeight:60,resize:"vertical",outline:"none"
@@ -2099,8 +2151,8 @@ function RuleCard({ title, subtitle, accent, items, loading, busy, editId, draft
                         fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
                       }}>SAVE</button>
                       <button disabled={busy} onClick={onCancel} style={{
-                        background:"transparent",border:"1px solid #26385a",borderRadius:6,
-                        padding:"5px 12px",color:"#7a8aa8",fontSize:11,cursor:"pointer",
+                        background:"transparent",border:"1px solid #2e2e2e",borderRadius:6,
+                        padding:"5px 12px",color:"#868686",fontSize:11,cursor:"pointer",
                         fontFamily:"'JetBrains Mono',monospace",letterSpacing:1
                       }}>CANCEL</button>
                     </div>
@@ -2137,7 +2189,7 @@ function StrategyDiagram() {
     <div style={{...styles.card, padding:16}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
         <span style={styles.cardTitle}>Setup Diagram</span>
-        <span style={{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>HIGH · OTE · DEMAND · TP</span>
+        <span style={{fontSize:10,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>HIGH · OTE · DEMAND · TP</span>
       </div>
       <svg viewBox="0 0 800 280" style={{width:"100%",height:"auto",display:"block"}} preserveAspectRatio="xMidYMid meet">
         <defs>
@@ -2172,8 +2224,8 @@ function StrategyDiagram() {
         <text x="776" y="220" fill={R} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="end">SL</text>
 
         {/* LOW line */}
-        <line x1="20" y1="250" x2="780" y2="250" stroke="#8b9bb8" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5"/>
-        <text x="24" y="266" fill="#8b9bb8" fontSize="10" fontFamily="JetBrains Mono, monospace">LOW</text>
+        <line x1="20" y1="250" x2="780" y2="250" stroke="#97979b" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5"/>
+        <text x="24" y="266" fill="#97979b" fontSize="10" fontFamily="JetBrains Mono, monospace">LOW</text>
 
         {/* Price path: start near high → drop through demand to OTE → bounce up into demand → break up to TP */}
         <path d="M 40 80 L 90 60 L 140 90 L 190 130 L 240 175 L 290 195 L 340 165 L 390 130 L 440 115 L 490 90 L 550 65 L 620 45 L 700 35"
@@ -2186,7 +2238,7 @@ function StrategyDiagram() {
         <circle cx="290" cy="195" r="4" fill={GOLD}/>
         <text x="290" y="216" fill={GOLD} fontSize="9" fontFamily="JetBrains Mono, monospace" textAnchor="middle">OTE touch</text>
 
-        <circle cx="440" cy="115" r="5" fill={G} stroke="#121e34" strokeWidth="1"/>
+        <circle cx="440" cy="115" r="5" fill={G} stroke="#161616" strokeWidth="1"/>
         <text x="440" y="100" fill={G} fontSize="10" fontFamily="JetBrains Mono, monospace" textAnchor="middle" fontWeight="700">ENTRY · CHOCH</text>
 
         {/* Arrow to TP */}
@@ -2333,14 +2385,14 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
       </div>
 
       <div style={{...styles.card, padding:0, overflow:"hidden"}}>
-        <div style={{padding:"12px 16px",borderBottom:"1px solid #1c2c45",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{padding:"12px 16px",borderBottom:"1px solid #262626",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={styles.cardTitle}>Steps</span>
-          <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>{loading?"loading…":`${completed}/${TARGET_COUNT}`}</span>
+          <span style={{fontSize:11,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>{loading?"loading…":`${completed}/${TARGET_COUNT}`}</span>
         </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
             <thead>
-              <tr style={{background:"#0e1a2e"}}>
+              <tr style={{background:"#121212"}}>
                 <th style={tgTh}>#</th>
                 <th style={tgTh}>Gain (10%)</th>
                 <th style={tgTh}>Balance</th>
@@ -2355,21 +2407,21 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
                 const isBusy = busy === r.step;
                 const isCurrent = r.step === nextStep;
                 return (
-                  <tr key={r.step} style={{borderBottom:"1px solid #14223a",background: done?"rgba(212,184,110,0.04)":"transparent"}}>
-                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:done?GOLD:"#8b9bb8",fontWeight:700,width:42}}>{String(r.step).padStart(2,"0")}</td>
+                  <tr key={r.step} style={{borderBottom:"1px solid #202020",background: done?"rgba(226,166,61,0.04)":"transparent"}}>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:done?GOLD:"#97979b",fontWeight:700,width:42}}>{String(r.step).padStart(2,"0")}</td>
                     <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:G}}>+{money(r.gain)}</td>
                     <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:"#eee0bf",fontWeight:600}}>{money(r.balance)}</td>
-                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color: done?"#cec2a3":(isCurrent?"#7a8aa8":"#3d4c68")}}>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color: done?"#cec2a3":(isCurrent?"#868686":"#3f3f3f")}}>
                       {done ? fmtShortDate(r.completedAt) : (isCurrent ? "In progress" : "—")}
                     </td>
-                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color: done?"#8b9bb8":(isCurrent?GOLD:"#3d4c68")}}>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color: done?"#97979b":(isCurrent?GOLD:"#3f3f3f")}}>
                       {done ? (r.daysTaken!=null ? `${r.daysTaken}d` : "—") : (isCurrent && daysOnCurrent!=null ? `${daysOnCurrent}d so far` : "—")}
                     </td>
                     <td style={{...tgTd,textAlign:"center",width:90}}>
                       <button disabled={isBusy} onClick={()=>toggle(r.step)} style={{
-                        background: done?"rgba(212,184,110,0.15)":"transparent",
-                        border:`1px solid ${done?GOLD:"#26385a"}`,borderRadius:6,
-                        padding:"5px 12px",color: done?GOLD:"#7a8aa8",fontSize:11,
+                        background: done?"rgba(226,166,61,0.15)":"transparent",
+                        border:`1px solid ${done?GOLD:"#2e2e2e"}`,borderRadius:6,
+                        padding:"5px 12px",color: done?GOLD:"#868686",fontSize:11,
                         cursor:isBusy?"wait":"pointer",fontFamily:"'JetBrains Mono',monospace",
                         fontWeight:700,letterSpacing:1,opacity:isBusy?0.5:1,
                         minWidth:70
@@ -2404,7 +2456,7 @@ function TiltCard({ children, style }) {
     const ry = (px - 0.5) * 7;
     el.style.transform = `perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`;
     if (glowRef.current) {
-      glowRef.current.style.background = `radial-gradient(circle at ${px*100}% ${py*100}%, rgba(198,164,76,0.16), transparent 55%)`;
+      glowRef.current.style.background = `radial-gradient(circle at ${px*100}% ${py*100}%, rgba(226,166,61,0.16), transparent 55%)`;
       glowRef.current.style.opacity = "1";
     }
   };
@@ -2444,7 +2496,7 @@ function StatCard({ label, value, sub, color }) {
   );
 }
 
-const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
+const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#6e6e6e",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #262626",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
 
 // Lightweight markdown-ish renderer for the Notes preview pane. HTML is escaped
@@ -2462,10 +2514,10 @@ function renderNoteMarkdown(raw) {
   const closeList = () => { if (inList) { out.push("</ul>"); inList = false; } };
   for (const rawLine of lines) {
     let line = escapeHtml(rawLine);
-    line = line.replace(/`([^`]+)`/g, '<code style="background:#0e1a2e;padding:1px 5px;border-radius:4px;font-family:\'JetBrains Mono\',monospace;font-size:0.92em;">$1</code>');
+    line = line.replace(/`([^`]+)`/g, '<code style="background:#121212;padding:1px 5px;border-radius:4px;font-family:\'JetBrains Mono\',monospace;font-size:0.92em;">$1</code>');
     line = line.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f2e6c4;">$1</strong>');
     line = line.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    line = line.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#c6a44c;">$1</a>');
+    line = line.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#e2a63d;">$1</a>');
 
     const heading = rawLine.match(/^(#{1,3})\s+/);
     const bullet = rawLine.match(/^-\s+/);
@@ -2709,7 +2761,7 @@ function NotesPage({ requireUnlock, showToast }) {
 
       <div style={{display:"flex",flexWrap:"wrap",gap:14,alignItems:"flex-start"}}>
         <div style={{...styles.card, flex:"1 1 260px", minWidth:240, padding:0, overflow:"hidden"}}>
-          <div style={{padding:"12px 14px",borderBottom:"1px solid #1c2c45",display:"flex",gap:8}}>
+          <div style={{padding:"12px 14px",borderBottom:"1px solid #262626",display:"flex",gap:8}}>
             <input
               value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search notes…"
@@ -2721,27 +2773,27 @@ function NotesPage({ requireUnlock, showToast }) {
           </div>
           <div style={{maxHeight:520,overflowY:"auto"}}>
             {loading ? (
-              <div style={{padding:20,textAlign:"center",color:"#5a6b88",fontSize:12}}>Loading…</div>
+              <div style={{padding:20,textAlign:"center",color:"#787878",fontSize:12}}>Loading…</div>
             ) : filtered.length === 0 ? (
-              <div style={{padding:20,textAlign:"center",color:"#5a6b88",fontSize:12}}>
+              <div style={{padding:20,textAlign:"center",color:"#787878",fontSize:12}}>
                 {notes.length === 0 ? "No notes yet — tap + to write your first one." : "No matches."}
               </div>
             ) : filtered.map(n => {
               const active = n.id === activeId;
               return (
                 <div key={n.id} onClick={()=>selectNote(n)} style={{
-                  padding:"12px 14px",borderBottom:"1px solid #14223a",cursor:"pointer",
-                  background: active ? "rgba(198,164,76,0.08)" : "transparent",
+                  padding:"12px 14px",borderBottom:"1px solid #202020",cursor:"pointer",
+                  background: active ? "rgba(226,166,61,0.08)" : "transparent",
                   borderLeft:`3px solid ${active ? GOLD : "transparent"}`,
                 }}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
                     <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:13,color: active ? "#f2e6c4" : "#cec2a3",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                       {noteTitle(n.content)}
                     </div>
-                    <span style={{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{timeAgo(n.updatedAt)}</span>
+                    <span style={{fontSize:10,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{timeAgo(n.updatedAt)}</span>
                   </div>
                   {noteSnippet(n.content) && (
-                    <div style={{fontSize:11,color:"#5a6b88",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{noteSnippet(n.content)}</div>
+                    <div style={{fontSize:11,color:"#787878",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{noteSnippet(n.content)}</div>
                   )}
                 </div>
               );
@@ -2751,25 +2803,25 @@ function NotesPage({ requireUnlock, showToast }) {
 
         <div style={{...styles.card, flex:"3 1 420px", minWidth:280, padding:0, overflow:"hidden", display:"flex", flexDirection:"column"}}>
           {!activeNote ? (
-            <div style={{padding:"60px 20px",textAlign:"center",color:"#5a6b88",fontSize:13}}>
+            <div style={{padding:"60px 20px",textAlign:"center",color:"#787878",fontSize:13}}>
               Select a note, or tap + to start writing.
             </div>
           ) : (
             <>
-              <div style={{padding:"10px 14px",borderBottom:"1px solid #1c2c45",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <div style={{padding:"10px 14px",borderBottom:"1px solid #262626",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <button onClick={()=>wrapSelection("**")} title="Bold" style={{...styles.toggleBtn,padding:"6px 11px",fontWeight:800}}>B</button>
                 <button onClick={()=>wrapSelection("*")} title="Italic" style={{...styles.toggleBtn,padding:"6px 11px",fontStyle:"italic"}}>i</button>
                 <button onClick={()=>wrapSelection("`")} title="Code" style={{...styles.toggleBtn,padding:"6px 11px",fontFamily:"'JetBrains Mono',monospace"}}>{"</>"}</button>
                 <button onClick={()=>insertLinePrefix("- ")} title="Bullet" style={{...styles.toggleBtn,padding:"6px 11px"}}>•</button>
                 <button onClick={()=>insertLinePrefix("# ")} title="Heading" style={{...styles.toggleBtn,padding:"6px 11px"}}>H</button>
-                <div style={{width:1,height:20,background:"#1c2c45"}}/>
+                <div style={{width:1,height:20,background:"#262626"}}/>
                 <button onClick={()=>setMode(mode==="edit"?"preview":"edit")} style={{
                   ...styles.toggleBtn,padding:"6px 12px",
-                  color: mode==="preview" ? GOLD : "#8b9bb8",
-                  borderColor: mode==="preview" ? GOLD+"55" : "#26385a",
+                  color: mode==="preview" ? GOLD : "#97979b",
+                  borderColor: mode==="preview" ? GOLD+"55" : "#2e2e2e",
                 }}>{mode==="edit" ? "Preview" : "Edit"}</button>
                 <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>
+                  <span style={{fontSize:10,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"}}>
                     {saveState==="saving" ? "Saving…" : saveState==="saved" ? "Saved ✓" : `${wordCount} word${wordCount!==1?"s":""}`}
                   </span>
                   <button onClick={()=>deleteNote(activeNote.id)} title="Delete note" style={{...styles.toggleBtn,padding:"6px 10px",color:R,borderColor:R+"55"}}>🗑</button>
@@ -2788,7 +2840,7 @@ function NotesPage({ requireUnlock, showToast }) {
                     }}
                   />
                 ) : (
-                  <div dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(draftContent) || '<p style="color:#5a6b88">Nothing to preview yet.</p>' }} />
+                  <div dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(draftContent) || '<p style="color:#787878">Nothing to preview yet.</p>' }} />
                 )}
               </div>
             </>
@@ -2851,9 +2903,9 @@ function LevSelector({ levPct, onChange, fullPosition }) {
           <button key={pct} type="button" onClick={() => { setAmountUsed(""); onChange(pct); }} style={{
             ...styles.toggleBtn, flex: "0 0 auto", padding: "8px 10px",
             fontSize: 11, fontFamily: "'JetBrains Mono',monospace",
-            background: cur === pct ? "rgba(198,164,76,0.15)" : "transparent",
-            color: cur === pct ? GOLD : "#5a6b88",
-            borderColor: cur === pct ? GOLD : "#26385a",
+            background: cur === pct ? "rgba(226,166,61,0.15)" : "transparent",
+            color: cur === pct ? GOLD : "#787878",
+            borderColor: cur === pct ? GOLD : "#2e2e2e",
           }}>{lbl}</button>
         ))}
       </div>
@@ -2865,7 +2917,7 @@ function LevSelector({ levPct, onChange, fullPosition }) {
               value={curPct > 0 ? trimNum(curLeverage) : ""}
               onChange={e => setFromLeverage(e.target.value)}
             />
-            <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>× leverage</span>
+            <span style={{ fontSize: 10, color: "#8a8a8a", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>× leverage</span>
           </div>
         </div>
         <div>
@@ -2876,14 +2928,14 @@ function LevSelector({ levPct, onChange, fullPosition }) {
               disabled={!(fullPosition > 0)}
               onChange={e => setFromAmountUsed(e.target.value)}
             />
-            <span style={{ fontSize: 10, color: "#7e8aa4", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>$ used</span>
+            <span style={{ fontSize: 10, color: "#8a8a8a", fontFamily: "'JetBrains Mono',monospace", whiteSpace: "nowrap" }}>$ used</span>
           </div>
-          <div style={{ fontSize: 9, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", marginTop: 3 }}>
+          <div style={{ fontSize: 9, color: "#6e6e6e", fontFamily: "'JetBrains Mono',monospace", marginTop: 3 }}>
             actual margin you put up — auto-fills leverage above
           </div>
         </div>
       </div>
-      <div style={{ fontSize: 10, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>
+      <div style={{ fontSize: 10, color: "#6e6e6e", fontFamily: "'JetBrains Mono',monospace", marginTop: 8 }}>
         {curPct < 100
           ? `${trimNum(curPct)}% margin = ${trimNum(curLeverage)}× leverage`
           : "No leverage — full price invested"}
@@ -2983,8 +3035,8 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
           ...styles.toggleBtn, flex: "0 0 auto", padding: "8px 12px",
           fontSize: 11, fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase",
           background: market === m ? MARKET_COLORS[m] + "22" : "transparent",
-          color: market === m ? MARKET_COLORS[m] : "#5a6b88",
-          borderColor: market === m ? MARKET_COLORS[m] : "#26385a",
+          color: market === m ? MARKET_COLORS[m] : "#787878",
+          borderColor: market === m ? MARKET_COLORS[m] : "#2e2e2e",
         }}>{m}</button>
       ))}
     </div>
@@ -3323,10 +3375,10 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 18px", marginBottom: 14, borderRadius: 10,
-        background: "linear-gradient(135deg, rgba(198,164,76,0.10), rgba(198,164,76,0.02))",
+        background: "linear-gradient(135deg, rgba(226,166,61,0.10), rgba(226,166,61,0.02))",
         border: `1px solid ${GOLD}33`
       }}>
-        <div style={{ fontFamily: "'Cinzel',serif", fontSize: 9, letterSpacing: 3, color: "#7e8aa4", textTransform: "uppercase" }}>Account Equity</div>
+        <div style={{ fontFamily: "'Cinzel',serif", fontSize: 9, letterSpacing: 3, color: "#8a8a8a", textTransform: "uppercase" }}>Account Equity</div>
         <div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, fontSize: 22, color: GOLD }}>
           ${accountEquity.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
@@ -3352,24 +3404,24 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
         <button onClick={() => { if (showForm) setShowForm(false); else requireUnlock(() => setShowForm(true)); }} style={{
-          background: showForm ? "rgba(198,164,76,0.15)" : "transparent",
+          background: showForm ? "rgba(226,166,61,0.15)" : "transparent",
           border: `1px solid ${showForm ? GOLD : GOLD + "66"}`,
           borderRadius: 6, padding: "8px 16px", color: GOLD, fontSize: 11, cursor: "pointer",
           fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600
         }}>{showForm ? "✕ Close" : "+ Add Holding"}</button>
         {holdings.length > 0 && (
           <button onClick={doRefresh} disabled={refreshing} style={{
-            background: "transparent", border: "1px solid #26385a", borderRadius: 6,
-            padding: "8px 16px", color: refreshing ? "#4a5a78" : "#9caac4", fontSize: 11,
+            background: "transparent", border: "1px solid #2e2e2e", borderRadius: 6,
+            padding: "8px 16px", color: refreshing ? "#6e6e6e" : "#a3a3a3", fontSize: 11,
             cursor: refreshing ? "wait" : "pointer",
             fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600, opacity: refreshing ? 0.6 : 1
           }}>{refreshing ? "Updating…" : "⟳ Refresh Prices"}</button>
         )}
         {holdings.length > 0 && (
           <button onClick={toggleAutoRefresh} style={{
-            background: autoRefresh ? "rgba(198,164,76,0.15)" : "transparent",
-            border: `1px solid ${autoRefresh ? GOLD : "#26385a"}`, borderRadius: 6,
-            padding: "8px 16px", color: autoRefresh ? GOLD : "#9caac4", fontSize: 11, cursor: "pointer",
+            background: autoRefresh ? "rgba(226,166,61,0.15)" : "transparent",
+            border: `1px solid ${autoRefresh ? GOLD : "#2e2e2e"}`, borderRadius: 6,
+            padding: "8px 16px", color: autoRefresh ? GOLD : "#a3a3a3", fontSize: 11, cursor: "pointer",
             fontFamily: "'Cinzel',serif", letterSpacing: 2, textTransform: "uppercase", fontWeight: 600,
             display: "flex", alignItems: "center", gap: 6
           }}>
@@ -3388,7 +3440,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
         <div style={{ ...styles.card, marginBottom: 16, borderColor: GOLD + "44" }}>
           <div style={styles.cardHeader}>
             <span style={styles.cardTitle}>New Holding</span>
-            <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>Type symbol → Lookup → fill details</span>
+            <span style={{ fontSize: 11, color: "#6e6e6e", fontFamily: "'JetBrains Mono',monospace" }}>Type symbol → Lookup → fill details</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
             <div style={{ gridColumn: "1 / -1" }}>
@@ -3429,28 +3481,28 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
               </Field>
             </div>
             <Field label="Amount Invested (Margin)">
-              <div style={{ ...styles.input, background: "#0a1220", border: "1px solid #1c2c45", color: GOLD, fontWeight: 700, cursor: "default" }}>
-                {formAmt != null ? fmtUSD(formAmt) : <span style={{ color: "#4a5a78" }}>—</span>}
+              <div style={{ ...styles.input, background: "#0d0d0d", border: "1px solid #262626", color: GOLD, fontWeight: 700, cursor: "default" }}>
+                {formAmt != null ? fmtUSD(formAmt) : <span style={{ color: "#6e6e6e" }}>—</span>}
               </div>
             </Field>
             {formFullPos != null && formLevPct < 100 && (
               <Field label="Full Position Size">
-                <div style={{ ...styles.input, background: "#0a1220", border: `1px solid ${GOLD}44`, color: "#9caac4", fontWeight: 600, cursor: "default" }}>
+                <div style={{ ...styles.input, background: "#0d0d0d", border: `1px solid ${GOLD}44`, color: "#a3a3a3", fontWeight: 600, cursor: "default" }}>
                   {fmtUSD(formFullPos)}
-                  <span style={{ fontSize: 10, color: "#7e8aa4", marginLeft: 8, fontFamily: "'JetBrains Mono',monospace" }}>({(100 / formLevPct).toFixed(1)}× position)</span>
+                  <span style={{ fontSize: 10, color: "#8a8a8a", marginLeft: 8, fontFamily: "'JetBrains Mono',monospace" }}>({(100 / formLevPct).toFixed(1)}× position)</span>
                 </div>
               </Field>
             )}
           </div>
           {lookupSym && lookupQ && (
-            <div style={{ marginTop: 12, padding: "10px 14px", background: "#0e1a2e", borderRadius: 6, border: "1px solid #1c2c45", display: "flex", gap: 28, flexWrap: "wrap" }}>
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#121212", borderRadius: 6, border: "1px solid #262626", display: "flex", gap: 28, flexWrap: "wrap" }}>
               {[
                 { label: "Current Price", value: lookupQ.price, color: GOLD },
                 { label: "52W High", value: lookupQ.high52w, color: G },
                 { label: "52W Low", value: lookupQ.low52w, color: R },
               ].map(({ label, value, color }) => (
                 <div key={label}>
-                  <span style={{ fontSize: 9, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace", letterSpacing: 1, textTransform: "uppercase" }}>{label} · </span>
+                  <span style={{ fontSize: 9, color: "#6e6e6e", fontFamily: "'JetBrains Mono',monospace", letterSpacing: 1, textTransform: "uppercase" }}>{label} · </span>
                   <span style={{ fontFamily: "'JetBrains Mono',monospace", color, fontWeight: 700, fontSize: 13 }}>{value != null ? `$${value.toFixed(2)}` : "—"}</span>
                 </div>
               ))}
@@ -3467,7 +3519,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
         <div style={styles.empty}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>📈</div>
           <div style={{ fontFamily: "'Manrope',sans-serif", fontWeight: 700, fontSize: 20, color: "#eee0bf", marginBottom: 8 }}>No holdings yet</div>
-          <div style={{ color: "#5a6b88", fontSize: 13, marginBottom: 24 }}>Add your first stock, forex pair, or commodity to start tracking your portfolio</div>
+          <div style={{ color: "#787878", fontSize: 13, marginBottom: 24 }}>Add your first stock, forex pair, or commodity to start tracking your portfolio</div>
           <button style={styles.primaryBtn} onClick={() => requireUnlock(() => setShowForm(true))}>Add First Holding</button>
         </div>
       ) : (
@@ -3476,7 +3528,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             <>
               <div style={{ ...styles.cardHeader, marginBottom: 8 }}>
                 <span style={styles.cardTitle}>Open Positions</span>
-                <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>{openHoldings.length} active</span>
+                <span style={{ fontSize: 11, color: "#6e6e6e", fontFamily: "'JetBrains Mono',monospace" }}>{openHoldings.length} active</span>
               </div>
               <div style={styles.tableWrap}>
                 <table style={{ ...styles.table, minWidth: 1160 }}>
@@ -3501,39 +3553,39 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                       const c = pnlColor(gl);
                       return (
                         <tr key={h.id} style={styles.tr}
-                          onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
+                          onMouseEnter={e => e.currentTarget.style.background = "#1c1c1c"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                           <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: GOLD, whiteSpace: "nowrap" }}>{h.symbol}<MarketBadge market={getMarket(h)}/></td>
                           <td style={{ ...styles.td, color: "#cec2a3", fontSize: 11, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.buyDate}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#8a8a8a" }}>{h.buyDate}</td>
                           <td style={{ ...styles.td, ...styles.tdMono }}>${h.buyPrice.toFixed(2)}</td>
                           <td style={{ ...styles.td, ...styles.tdMono }}>{h.shares.toLocaleString()}</td>
                           <td style={{ ...styles.td, textAlign: "center" }}>
                             <span style={{
                               display: "inline-block", padding: "2px 7px", borderRadius: 4,
                               fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
-                              background: levMult > 1 ? "rgba(198,164,76,0.15)" : "rgba(90,107,136,0.12)",
-                              color: levMult > 1 ? GOLD : "#5a6b88",
-                              border: `1px solid ${levMult > 1 ? GOLD + "55" : "#2a3a55"}`
+                              background: levMult > 1 ? "rgba(226,166,61,0.15)" : "rgba(120,120,120,0.12)",
+                              color: levMult > 1 ? GOLD : "#787878",
+                              border: `1px solid ${levMult > 1 ? GOLD + "55" : "#2c2c2c"}`
                             }}>{levMult > 1 ? `${levMult.toFixed(0)}×` : "1×"}</span>
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#9caac4" }}>{fmtUSD(amt)}</td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#4a5a78", fontWeight: 700 }}>
-                            {hasPx ? `$${q.price.toFixed(2)}` : <span style={{ fontSize: 10, color: "#3a4a62" }}>loading…</span>}
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#a3a3a3" }}>{fmtUSD(amt)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx ? GOLD : "#6e6e6e", fontWeight: 700 }}>
+                            {hasPx ? `$${q.price.toFixed(2)}` : <span style={{ fontSize: 10, color: "#3a3a3a" }}>loading…</span>}
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.high52w != null ? G : "#4a5a78" }}>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.high52w != null ? G : "#6e6e6e" }}>
                             {hasPx && q.high52w != null ? `$${q.high52w.toFixed(2)}` : "—"}
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.low52w != null ? R : "#4a5a78" }}>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: hasPx && q.low52w != null ? R : "#6e6e6e" }}>
                             {hasPx && q.low52w != null ? `$${q.low52w.toFixed(2)}` : "—"}
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: hasPx ? "#eee0bf" : "#4a5a78" }}>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: hasPx ? "#eee0bf" : "#6e6e6e" }}>
                             {hasPx ? fmtUSD(curVal) : "—"}
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#6e6e6e" }}>
                             {hasPx ? fmt$(gl) : "—"}
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#4a5a78" }}>
+                          <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: hasPx ? c : "#6e6e6e" }}>
                             {hasPx ? fmtN(glPct) + "%" : "—"}
                           </td>
                           <td style={{ ...styles.td, textAlign: "right" }}>
@@ -3556,7 +3608,7 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             <div style={{ marginTop: 24 }}>
               <div style={{ ...styles.cardHeader, marginBottom: 8 }}>
                 <span style={styles.cardTitle}>Closed Positions</span>
-                <span style={{ fontSize: 11, color: "#4a5a78", fontFamily: "'JetBrains Mono',monospace" }}>{closedHoldings.length} trade{closedHoldings.length !== 1 ? "s" : ""} · history</span>
+                <span style={{ fontSize: 11, color: "#6e6e6e", fontFamily: "'JetBrains Mono',monospace" }}>{closedHoldings.length} trade{closedHoldings.length !== 1 ? "s" : ""} · history</span>
               </div>
               <div style={styles.tableWrap}>
                 <table style={{ ...styles.table, minWidth: 1060 }}>
@@ -3579,29 +3631,29 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                       const c = pnlColor(gl);
                       return (
                         <tr key={h.id} style={{ ...styles.tr, opacity: 0.8 }}
-                          onMouseEnter={e => e.currentTarget.style.background = "#16243c"}
+                          onMouseEnter={e => e.currentTarget.style.background = "#1c1c1c"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: "#9caac4", whiteSpace: "nowrap" }}>
+                          <td style={{ ...styles.td, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: "#a3a3a3", whiteSpace: "nowrap" }}>
                             {h.symbol}
                             <MarketBadge market={getMarket(h)}/>
-                            <span style={{ marginLeft: 6, fontSize: 9, color: "#4a5a78", fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase" }}>closed</span>
+                            <span style={{ marginLeft: 6, fontSize: 9, color: "#6e6e6e", fontFamily: "'Cinzel',serif", letterSpacing: 1, textTransform: "uppercase" }}>closed</span>
                           </td>
-                          <td style={{ ...styles.td, color: "#7e8aa4", fontSize: 11, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#5a6b88" }}>{h.buyDate}</td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>${h.buyPrice.toFixed(2)}</td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.sellDate || "—"}</td>
+                          <td style={{ ...styles.td, color: "#8a8a8a", fontSize: 11, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.name}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#787878" }}>{h.buyDate}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#8a8a8a" }}>${h.buyPrice.toFixed(2)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#8a8a8a" }}>{h.sellDate || "—"}</td>
                           <td style={{ ...styles.td, ...styles.tdMono, color: "#eee0bf", fontWeight: 700 }}>${h.sellPrice.toFixed(2)}</td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{h.shares.toLocaleString()}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#8a8a8a" }}>{h.shares.toLocaleString()}</td>
                           <td style={{ ...styles.td, textAlign: "center" }}>
                             <span style={{
                               display: "inline-block", padding: "2px 7px", borderRadius: 4,
                               fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
-                              background: levMult > 1 ? "rgba(198,164,76,0.10)" : "rgba(90,107,136,0.08)",
-                              color: levMult > 1 ? GOLD + "aa" : "#4a5a68",
-                              border: `1px solid ${levMult > 1 ? GOLD + "33" : "#1a2a3a"}`
+                              background: levMult > 1 ? "rgba(226,166,61,0.10)" : "rgba(120,120,120,0.08)",
+                              color: levMult > 1 ? GOLD + "aa" : "#45454a",
+                              border: `1px solid ${levMult > 1 ? GOLD + "33" : "#1f1f1f"}`
                             }}>{levMult > 1 ? `${levMult.toFixed(0)}×` : "1×"}</span>
                           </td>
-                          <td style={{ ...styles.td, ...styles.tdMono, color: "#7e8aa4" }}>{fmtUSD(amt)}</td>
+                          <td style={{ ...styles.td, ...styles.tdMono, color: "#8a8a8a" }}>{fmtUSD(amt)}</td>
                           <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 600, color: "#eee0bf" }}>{fmtUSD(realizedVal)}</td>
                           <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: c }}>{fmt$(gl)}</td>
                           <td style={{ ...styles.td, ...styles.tdMono, fontWeight: 700, color: c }}>{fmtN(glPct)}%</td>
@@ -3623,12 +3675,12 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
       {closeModal && (
         <div onClick={() => setCloseModal(null)} style={{
           position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(8,8,16,0.88)", backdropFilter: "blur(6px)",
+          background: "rgba(5,5,5,0.88)", backdropFilter: "blur(6px)",
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: 20, fontFamily: "'Manrope',sans-serif"
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: "#121e34", border: `1px solid ${G}44`, borderRadius: 14,
+            background: "#161616", border: `1px solid ${G}44`, borderRadius: 14,
             padding: 28, width: "100%", maxWidth: 380,
             boxShadow: "0 20px 60px rgba(0,0,0,0.6)"
           }}>
@@ -3658,12 +3710,12 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
       {editH && (
         <div onClick={() => setEditH(null)} style={{
           position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(8,8,16,0.88)", backdropFilter: "blur(6px)",
+          background: "rgba(5,5,5,0.88)", backdropFilter: "blur(6px)",
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: 20, fontFamily: "'Manrope',sans-serif"
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: "#121e34", border: "1px solid #1c2c45", borderRadius: 14,
+            background: "#161616", border: "1px solid #262626", borderRadius: 14,
             padding: 24, width: "100%", maxWidth: 580,
             boxShadow: "0 20px 60px rgba(0,0,0,0.6)", maxHeight: "90vh", overflowY: "auto"
           }}>
@@ -3712,10 +3764,10 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
                 </Field>
               </div>
               <Field label="Amount Invested (Margin)">
-                <div style={{ ...styles.input, background: "#0a1220", border: "1px solid #1c2c45", color: GOLD, fontWeight: 700, cursor: "default" }}>
+                <div style={{ ...styles.input, background: "#0d0d0d", border: "1px solid #262626", color: GOLD, fontWeight: 700, cursor: "default" }}>
                   {editFullPos != null
                     ? fmtUSD(editFullPos * (Math.min(100, Math.max(0.01, parseFloat(editH.levPct) || 100)) / 100))
-                    : <span style={{ color: "#4a5a78" }}>—</span>}
+                    : <span style={{ color: "#6e6e6e" }}>—</span>}
                 </div>
               </Field>
             </div>
@@ -3755,14 +3807,14 @@ function Lightbox({ urls, index, onChange, onClose }) {
     }}>
       <button onClick={(e)=>{e.stopPropagation();onClose();}} style={{
         position:"fixed",top:14,left:14,zIndex:1600,
-        background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:8,
+        background:"rgba(10,10,10,0.85)",border:"1px solid #2e2e2e",borderRadius:8,
         padding:"10px 16px",color:"#eee0bf",fontSize:13,cursor:"pointer",
         fontFamily:"'Manrope',sans-serif",fontWeight:600,letterSpacing:0.5,
         display:"flex",alignItems:"center",gap:6,backdropFilter:"blur(8px)"
       }}>← Back</button>
       <div style={{
         position:"fixed",top:14,right:14,zIndex:1600,
-        background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:8,
+        background:"rgba(10,10,10,0.85)",border:"1px solid #2e2e2e",borderRadius:8,
         padding:"10px 12px",color:GOLD,fontSize:11,
         fontFamily:"'JetBrains Mono',monospace",backdropFilter:"blur(8px)"
       }}>{index+1} / {total}</div>
@@ -3772,14 +3824,14 @@ function Lightbox({ urls, index, onChange, onClose }) {
         <>
           <button onClick={(e)=>{e.stopPropagation();prev();}} style={{
             position:"fixed",left:8,top:"50%",transform:"translateY(-50%)",zIndex:1600,
-            background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:"50%",
+            background:"rgba(10,10,10,0.85)",border:"1px solid #2e2e2e",borderRadius:"50%",
             width:44,height:44,color:"#eee0bf",fontSize:20,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"center",
             backdropFilter:"blur(8px)"
           }}>‹</button>
           <button onClick={(e)=>{e.stopPropagation();next();}} style={{
             position:"fixed",right:8,top:"50%",transform:"translateY(-50%)",zIndex:1600,
-            background:"rgba(15,15,26,0.85)",border:"1px solid #26385a",borderRadius:"50%",
+            background:"rgba(10,10,10,0.85)",border:"1px solid #2e2e2e",borderRadius:"50%",
             width:44,height:44,color:"#eee0bf",fontSize:20,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"center",
             backdropFilter:"blur(8px)"
@@ -3793,53 +3845,53 @@ function Lightbox({ urls, index, onChange, onClose }) {
 function Field({label, children}) {
   return (
     <div>
-      <label style={{display:"block",fontSize:10,color:"#6b7798",fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>{label}</label>
+      <label style={{display:"block",fontSize:10,color:"#7c7c7c",fontFamily:"'JetBrains Mono',monospace",letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>{label}</label>
       {children}
     </div>
   );
 }
 
 function gradeStyle(g) {
-  const map = {"A+":GOLD,"A":"#bbb29a","B":"#9caac4","C":"#7a8aa8","D":R};
-  return {color:map[g]||"#7a8aa8", borderColor:(map[g]||"#4a5a78")+"55", background:(map[g]||"#4a5a78")+"11"};
+  const map = {"A+":GOLD,"A":"#bbb29a","B":"#a3a3a3","C":"#868686","D":R};
+  return {color:map[g]||"#868686", borderColor:(map[g]||"#6e6e6e")+"55", background:(map[g]||"#6e6e6e")+"11"};
 }
 
 const styles = {
-  root:{display:"flex",flexDirection:"column",height:"100dvh",minHeight:"100vh",background:"#0b1424",color:"#eee0bf",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
-  header:{display:"flex",alignItems:"center",gap:16,padding:"0 16px",height:52,background:"#0e1a2e",borderBottom:"1px solid #14223a",flexShrink:0},
+  root:{display:"flex",flexDirection:"column",height:"100dvh",minHeight:"100vh",background:"radial-gradient(circle at 18% -8%, rgba(226,166,61,0.14), transparent 42%), radial-gradient(circle at 88% -6%, rgba(52,211,153,0.08), transparent 42%), #0a0a0a",color:"#eee0bf",fontFamily:"'Manrope',sans-serif",overflow:"hidden"},
+  header:{display:"flex",alignItems:"center",gap:16,padding:"0 16px",height:52,background:"#121212",borderBottom:"1px solid #202020",flexShrink:0},
   logo:{display:"flex",alignItems:"center",gap:8},
   nav:{display:"flex",gap:2,flexShrink:1,minWidth:0},
-  navBtn:{background:"none",border:"none",color:"#7e8aa4",fontSize:11,fontFamily:"'Cinzel',serif",fontWeight:500,padding:"6px 12px",borderRadius:6,cursor:"pointer",letterSpacing:1.5,whiteSpace:"nowrap",textTransform:"uppercase"},
-  navBtnActive:{color:"#eee0bf",background:"#16243c",fontWeight:600},
+  navBtn:{background:"none",border:"none",color:"#8a8a8a",fontSize:11,fontFamily:"'Cinzel',serif",fontWeight:500,padding:"6px 12px",borderRadius:6,cursor:"pointer",letterSpacing:1.5,whiteSpace:"nowrap",textTransform:"uppercase"},
+  navBtnActive:{color:"#eee0bf",background:"#1c1c1c",fontWeight:600},
   headerRight:{marginLeft:"auto",display:"flex",alignItems:"center",gap:10,flexShrink:0},
   body:{flex:1,overflowY:"auto",overscrollBehavior:"contain",padding:"20px 16px 48px",WebkitOverflowScrolling:"touch"},
   page:{maxWidth:1300,margin:"0 auto"},
   kpiRow:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:14},
-  kpiCard:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:"14px 16px",boxShadow:"0 6px 20px rgba(0,0,0,0.28)"},
-  kpiLabel:{fontSize:10,color:"#7e8aa4",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,marginBottom:6},
+  kpiCard:{background:"#161616",border:"1px solid #262626",borderRadius:10,padding:"14px 16px",boxShadow:"0 6px 20px rgba(0,0,0,0.28)"},
+  kpiLabel:{fontSize:10,color:"#8a8a8a",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,marginBottom:6},
   kpiValue:{fontSize:22,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,lineHeight:1,marginBottom:4},
-  kpiSub:{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"},
+  kpiSub:{fontSize:10,color:"#6e6e6e",fontFamily:"'JetBrains Mono',monospace"},
   chartsRow:{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap"},
-  card:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:14,minWidth:0,boxShadow:"0 6px 20px rgba(0,0,0,0.28)"},
+  card:{background:"#161616",border:"1px solid #262626",borderRadius:10,padding:14,minWidth:0,boxShadow:"0 6px 20px rgba(0,0,0,0.28)"},
   cardHeader:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12},
-  cardTitle:{fontSize:12,fontWeight:600,color:"#c6a44c",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif"},
-  empty:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 0",color:"#9caac4"},
+  cardTitle:{fontSize:12,fontWeight:600,color:"#e2a63d",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif"},
+  empty:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 0",color:"#a3a3a3"},
   filterRow:{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"},
-  filterInput:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:6,padding:"8px 12px",color:"#cec2a3",fontSize:13,fontFamily:"'JetBrains Mono',monospace",width:130,maxWidth:"100%"},
-  filterSelect:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:6,padding:"8px 12px",color:"#cec2a3",fontSize:13,fontFamily:"'JetBrains Mono',monospace"},
-  tableWrap:{overflowX:"auto",borderRadius:10,border:"1px solid #1c2c45"},
-  table:{width:"100%",borderCollapse:"collapse",background:"#121e34"},
-  th:{textAlign:"left",padding:"10px 14px",fontSize:10,color:"#c6a44c",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,borderBottom:"1px solid #1c2c45",background:"#0e1a2e",whiteSpace:"nowrap"},
-  tr:{borderBottom:"1px solid #14223a",cursor:"pointer",transition:"background 0.15s"},
+  filterInput:{background:"#161616",border:"1px solid #262626",borderRadius:6,padding:"8px 12px",color:"#cec2a3",fontSize:13,fontFamily:"'JetBrains Mono',monospace",width:130,maxWidth:"100%"},
+  filterSelect:{background:"#161616",border:"1px solid #262626",borderRadius:6,padding:"8px 12px",color:"#cec2a3",fontSize:13,fontFamily:"'JetBrains Mono',monospace"},
+  tableWrap:{overflowX:"auto",borderRadius:10,border:"1px solid #262626"},
+  table:{width:"100%",borderCollapse:"collapse",background:"#161616"},
+  th:{textAlign:"left",padding:"10px 14px",fontSize:10,color:"#e2a63d",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,borderBottom:"1px solid #262626",background:"#121212",whiteSpace:"nowrap"},
+  tr:{borderBottom:"1px solid #202020",cursor:"pointer",transition:"background 0.15s"},
   td:{padding:"11px 14px",fontSize:12},
   tdMono:{fontFamily:"'JetBrains Mono',monospace"},
   dirBadge:{display:"inline-block",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"2px 7px",borderRadius:4,letterSpacing:0.5},
   gradeBadge:{display:"inline-block",fontSize:10,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",padding:"2px 7px",borderRadius:4,border:"1px solid"},
   formGrid:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(150px, 1fr))",gap:12},
-  input:{width:"100%",background:"#0e1a2e",border:"1px solid #1c2c45",borderRadius:6,padding:"10px 12px",color:"#eee0bf",fontSize:16,fontFamily:"'JetBrains Mono',monospace"},
-  toggleBtn:{background:"transparent",border:"1px solid #26385a",borderRadius:6,padding:"9px 10px",color:"#5a6b88",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",transition:"all 0.15s"},
+  input:{width:"100%",background:"#121212",border:"1px solid #262626",borderRadius:6,padding:"10px 12px",color:"#eee0bf",fontSize:16,fontFamily:"'JetBrains Mono',monospace"},
+  toggleBtn:{background:"transparent",border:"1px solid #2e2e2e",borderRadius:6,padding:"9px 10px",color:"#787878",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",transition:"all 0.15s"},
   primaryBtn:{background:GOLD,border:"none",borderRadius:7,padding:"10px 24px",color:"#0a0a0a",fontSize:13,fontWeight:700,fontFamily:"'Manrope',sans-serif",cursor:"pointer",letterSpacing:0.3},
-  ghostBtn:{background:"transparent",border:"1px solid #26385a",borderRadius:7,padding:"10px 20px",color:"#8b9bb8",fontSize:13,fontFamily:"'Manrope',sans-serif",cursor:"pointer",fontWeight:600},
-  uploadBtn:{background:"transparent",border:"1px dashed #26385a",borderRadius:7,padding:"10px 18px",color:"#7a8aa8",fontSize:12,fontFamily:"'Manrope',sans-serif",cursor:"pointer"},
-  backBtn:{background:"none",border:"none",color:"#5a6b88",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",padding:0},
+  ghostBtn:{background:"transparent",border:"1px solid #2e2e2e",borderRadius:7,padding:"10px 20px",color:"#97979b",fontSize:13,fontFamily:"'Manrope',sans-serif",cursor:"pointer",fontWeight:600},
+  uploadBtn:{background:"transparent",border:"1px dashed #2e2e2e",borderRadius:7,padding:"10px 18px",color:"#868686",fontSize:12,fontFamily:"'Manrope',sans-serif",cursor:"pointer"},
+  backBtn:{background:"none",border:"none",color:"#787878",fontSize:12,fontFamily:"'Manrope',sans-serif",fontWeight:600,cursor:"pointer",padding:0},
 };
