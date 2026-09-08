@@ -9,6 +9,11 @@ import { getAuth, clearAuth, login, authFetch, scopedKey } from "./auth.js";
 const G = "#a5b285";   // sage olive — wins/positive
 const R = "#8a4339";   // oxblood — losses/negative
 const GOLD = "#c6a44c"; // brass — brand accent
+// Brighter variants of G/R for text sitting directly on dark chart tooltips —
+// the muted brand oxblood (R) has ~2.5:1 contrast on #0e1a2e, well under
+// readable. These are for text only; bars/badges keep the muted brand tones.
+const G_TEXT = "#a9e08f";
+const R_TEXT = "#f0897a";
 
 const DAILY_LOSS_LIMIT_PCT = 2;   // % of equity at start of day
 const WEEKLY_LOSS_LIMIT_PCT = 5;  // % of equity at start of week (Monday)
@@ -46,6 +51,32 @@ const fmtN = (n, d=2) => {
   return (v >= 0 ? "+" : "") + v.toFixed(d);
 };
 const pnlColor = (n) => (parseFloat(n) || 0) >= 0 ? G : R;
+
+// Custom Recharts tooltip for P&L bar/line charts. The library's default
+// tooltip colors item text using the series' own fill (our muted brand R/G),
+// which reads poorly on the dark card background — this uses brighter
+// dedicated text tones instead, plus a heading line for the category (date,
+// symbol, etc.) so the tooltip reads clearly regardless of which bar/point
+// is hovered.
+function ChartTooltip({ active, payload, label, nameKey }) {
+  if (!active || !payload || !payload.length) return null;
+  const p = payload[0];
+  const val = parseFloat(p.value) || 0;
+  const positive = val >= 0;
+  const heading = nameKey ? (p.payload?.[nameKey] ?? label) : label;
+  return (
+    <div style={{
+      background:"#0c1626", border:`1px solid ${positive ? "#33502f" : "#5a332c"}`,
+      borderRadius:8, padding:"9px 13px", boxShadow:"0 10px 28px rgba(0,0,0,0.5)",
+      fontFamily:"'JetBrains Mono',monospace",
+    }}>
+      {heading != null && <div style={{fontSize:10,color:"#9caac4",marginBottom:4,letterSpacing:0.5}}>{heading}</div>}
+      <div style={{fontSize:15,fontWeight:700,color: positive ? G_TEXT : R_TEXT}}>
+        {positive ? "+" : "-"}${Math.abs(val).toFixed(2)}
+      </div>
+    </div>
+  );
+}
 
 function exportCsv(trades) {
   const cols = ["id","date","time","symbol","direction","setup","entry","exit","size","pnl","rMultiple","grade","emotion","notes"];
@@ -742,7 +773,7 @@ function TradingJournal() {
                         <XAxis dataKey="date" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
                         <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
                         <ReferenceLine y={0} stroke="#2a3a55" strokeDasharray="3 3"/>
-                        <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} labelStyle={{color:"#9caac4"}} formatter={(v)=>[`$${v.toFixed(2)}`,"Equity"]}/>
+                        <Tooltip content={<ChartTooltip/>} cursor={{stroke:GOLD,strokeWidth:1,strokeDasharray:"3 3"}}/>
                         <Area type="monotone" dataKey="eq" stroke="none" fill="url(#eqGrad)" fillOpacity={1} isAnimationActive={false}/>
                         <Line type="monotone" dataKey="eq" stroke={G} strokeWidth={2} dot={false} activeDot={{r:4,fill:G,strokeWidth:0}}/>
                       </ComposedChart>
@@ -756,13 +787,23 @@ function TradingJournal() {
                     </div>
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={metrics.daily} margin={{top:5,right:5,left:0,bottom:0}}>
+                        <defs>
+                          <linearGradient id="dailyBarG" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#c3d6a0" stopOpacity={1}/>
+                            <stop offset="100%" stopColor={G} stopOpacity={0.7}/>
+                          </linearGradient>
+                          <linearGradient id="dailyBarR" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#c96f5f" stopOpacity={1}/>
+                            <stop offset="100%" stopColor={R} stopOpacity={0.8}/>
+                          </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1c2c45" vertical={false}/>
                         <XAxis dataKey="date" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} interval="preserveStartEnd"/>
                         <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
                         <ReferenceLine y={0} stroke="#2a3a55"/>
-                        <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} formatter={(v)=>[`$${v.toFixed(2)}`,"P&L"]}/>
+                        <Tooltip content={<ChartTooltip/>} cursor={{fill:"rgba(198,164,76,0.08)"}}/>
                         <Bar dataKey="pnl" radius={[3,3,0,0]}>
-                          {metrics.daily.map((d,i)=><Cell key={i} fill={d.pnl>=0?G:R} fillOpacity={0.85}/>)}
+                          {metrics.daily.map((d,i)=><Cell key={i} fill={d.pnl>=0?"url(#dailyBarG)":"url(#dailyBarR)"}/>)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -795,12 +836,22 @@ function TradingJournal() {
                     <div style={S.cardHeader}><span style={S.cardTitle}>Top Symbols</span></div>
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={metrics.symbols} layout="vertical" margin={{top:0,right:10,left:10,bottom:0}}>
+                        <defs>
+                          <linearGradient id="symBarG" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor={G} stopOpacity={0.7}/>
+                            <stop offset="100%" stopColor="#c3d6a0" stopOpacity={1}/>
+                          </linearGradient>
+                          <linearGradient id="symBarR" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor={R} stopOpacity={0.8}/>
+                            <stop offset="100%" stopColor="#c96f5f" stopOpacity={1}/>
+                          </linearGradient>
+                        </defs>
                         <XAxis type="number" tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`}/>
                         <YAxis type="category" dataKey="s" tick={{fill:"#bbb29a",fontSize:11,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} width={55}/>
                         <ReferenceLine x={0} stroke="#2a3a55"/>
-                        <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} formatter={(v,n,p)=>[`$${v.toFixed(2)}`,p.payload.s]}/>
+                        <Tooltip content={<ChartTooltip nameKey="s"/>} cursor={{fill:"rgba(198,164,76,0.08)"}}/>
                         <Bar dataKey="pnl" radius={[0,3,3,0]}>
-                          {metrics.symbols.map((d,i)=><Cell key={i} fill={d.pnl>=0?G:R} fillOpacity={0.85}/>)}
+                          {metrics.symbols.map((d,i)=><Cell key={i} fill={d.pnl>=0?"url(#symBarG)":"url(#symBarR)"}/>)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -3764,12 +3815,12 @@ const styles = {
   body:{flex:1,overflowY:"auto",overscrollBehavior:"contain",padding:"20px 16px 48px",WebkitOverflowScrolling:"touch"},
   page:{maxWidth:1300,margin:"0 auto"},
   kpiRow:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))",gap:10,marginBottom:14},
-  kpiCard:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:"14px 16px"},
+  kpiCard:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:"14px 16px",boxShadow:"0 6px 20px rgba(0,0,0,0.28)"},
   kpiLabel:{fontSize:10,color:"#7e8aa4",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif",fontWeight:500,marginBottom:6},
   kpiValue:{fontSize:22,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,lineHeight:1,marginBottom:4},
   kpiSub:{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"},
   chartsRow:{display:"flex",gap:12,marginBottom:14,flexWrap:"wrap"},
-  card:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:14,minWidth:0},
+  card:{background:"#121e34",border:"1px solid #1c2c45",borderRadius:10,padding:14,minWidth:0,boxShadow:"0 6px 20px rgba(0,0,0,0.28)"},
   cardHeader:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12},
   cardTitle:{fontSize:12,fontWeight:600,color:"#c6a44c",letterSpacing:2,textTransform:"uppercase",fontFamily:"'Cinzel',serif"},
   empty:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"80px 0",color:"#9caac4"},
