@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
+  LineChart, Line, BarChart, Bar, ComposedChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell, CartesianGrid
 } from "recharts";
 import { loadTrades, saveTrade, saveAll, removeTrade, useCloud } from "./storage.js";
@@ -544,7 +544,7 @@ function TradingJournal() {
               display:"flex",background:"#0e1a2e",borderBottom:"1px solid #14223a",
               justifyContent:"space-around",flexShrink:0
             }}>
-              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"],["portfolio","Portfolio"]].map(([v,l])=>{
+              {[["dashboard","Dashboard"],["journal","Journal"],["add","Trade Entry"],["strategy","Strategy"],["target","Target"],["portfolio","Portfolio"],["notes","Notes"]].map(([v,l])=>{
                 const active = view===v || ((view==="detail"||view==="edit") && v==="journal");
                 return (
                   <button key={v} onClick={()=>{
@@ -569,7 +569,7 @@ function TradingJournal() {
             <img src="/logo.webp" alt="Mahmudur TradeVault" style={{height:44,width:"auto",objectFit:"contain"}}/>
           </div>
           <div style={S.nav}>
-            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"],["portfolio","◈ Portfolio"]].map(([v,l])=>(
+            {[["dashboard","◆ Dashboard"],["journal","≡ Journal"],["add","+ Trade Entry"],["strategy","§ Strategy"],["target","◎ Target"],["portfolio","◈ Portfolio"],["notes","✎ Notes"]].map(([v,l])=>(
               <button key={v} onClick={()=>{
                 if (v==="add") goToAdd();
                 else setView(v);
@@ -660,11 +660,11 @@ function TradingJournal() {
                     {label:"Profit Factor", value:metrics.profitFactor>=999?"∞":metrics.profitFactor.toFixed(2), color:metrics.profitFactor>=1?G:R, sub:"Gross P / Gross L"},
                     {label:"Expectancy", value:fmt$(metrics.expectancy), color:pnlColor(metrics.expectancy), sub:"Per trade avg"},
                   ].map(k=>(
-                    <div key={k.label} style={S.kpiCard}>
+                    <TiltCard key={k.label} style={S.kpiCard}>
                       <div style={S.kpiLabel}>{k.label}</div>
                       <div style={{...S.kpiValue,color:k.color}}>{k.value}</div>
                       <div style={S.kpiSub}>{k.sub}</div>
-                    </div>
+                    </TiltCard>
                   ))}
                 </div>
 
@@ -685,16 +685,22 @@ function TradingJournal() {
                           <div style={{flex:"1 1 100px",minWidth:0,fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:13,color:"#eee0bf"}}>
                             {u.label}{u.tag===auth.tag?" (you)":""}
                           </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Week</div>
-                            <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.weekPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.weekPnl)}</div>
-                            <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.weekTrades} trade{u.weekTrades!==1?"s":""}</div>
-                          </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Month</div>
-                            <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.monthPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.monthPnl)}</div>
-                            <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.monthTrades} trade{u.monthTrades!==1?"s":""}</div>
-                          </div>
+                          {u.error ? (
+                            <div style={{fontSize:11,color:R,fontFamily:"'JetBrains Mono',monospace"}}>⚠ sync issue</div>
+                          ) : (
+                            <>
+                              <div style={{textAlign:"right"}}>
+                                <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Week</div>
+                                <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.weekPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.weekPnl)}</div>
+                                <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.weekTrades} trade{u.weekTrades!==1?"s":""}</div>
+                              </div>
+                              <div style={{textAlign:"right"}}>
+                                <div style={{fontSize:9,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>Month</div>
+                                <div style={{fontSize:13,fontWeight:700,color:pnlColor(u.monthPnl),fontFamily:"'JetBrains Mono',monospace"}}>{fmt$(u.monthPnl)}</div>
+                                <div style={{fontSize:10,color:"#5a6b88",fontFamily:"'JetBrains Mono',monospace"}}>{u.monthTrades} trade{u.monthTrades!==1?"s":""}</div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -725,11 +731,11 @@ function TradingJournal() {
                       <span style={{fontSize:11,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>cumulative P&L</span>
                     </div>
                     <ResponsiveContainer width="100%" height={180}>
-                      <LineChart data={metrics.equity} margin={{top:5,right:10,left:0,bottom:0}}>
+                      <ComposedChart data={metrics.equity} margin={{top:5,right:10,left:0,bottom:0}}>
                         <defs>
                           <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={G} stopOpacity={0.15}/>
-                            <stop offset="95%" stopColor={G} stopOpacity={0}/>
+                            <stop offset="5%" stopColor={G} stopOpacity={0.38}/>
+                            <stop offset="95%" stopColor={G} stopOpacity={0.02}/>
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1c2c45" vertical={false}/>
@@ -737,8 +743,9 @@ function TradingJournal() {
                         <YAxis tick={{fill:"#4a5a78",fontSize:9,fontFamily:"'JetBrains Mono',monospace"}} tickLine={false} axisLine={false} tickFormatter={v=>`$${v}`} width={52}/>
                         <ReferenceLine y={0} stroke="#2a3a55" strokeDasharray="3 3"/>
                         <Tooltip contentStyle={{background:"#121e34",border:"1px solid #26385a",borderRadius:6,fontFamily:"'JetBrains Mono',monospace",fontSize:11}} labelStyle={{color:"#9caac4"}} formatter={(v)=>[`$${v.toFixed(2)}`,"Equity"]}/>
+                        <Area type="monotone" dataKey="eq" stroke="none" fill="url(#eqGrad)" fillOpacity={1} isAnimationActive={false}/>
                         <Line type="monotone" dataKey="eq" stroke={G} strokeWidth={2} dot={false} activeDot={{r:4,fill:G,strokeWidth:0}}/>
-                      </LineChart>
+                      </ComposedChart>
                     </ResponsiveContainer>
                   </div>
 
@@ -1153,6 +1160,10 @@ function TradingJournal() {
               }
             }}
           /></div>
+        )}
+
+        {view==="notes" && (
+          <div style={S.page}><NotesPage requireUnlock={requireUnlock} showToast={showToast}/></div>
         )}
 
       </div>
@@ -2153,6 +2164,10 @@ function round2(n) { return Math.round(n * 100) / 100; }
 function money(n) {
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function fmtShortDate(iso) {
+  return iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+}
 
 function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   const rows = useMemo(() => buildTargetRows(), []);
@@ -2220,6 +2235,22 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   const nextTargetBalance = nextStep ? rows[nextStep - 1].balance : null;
   const dueTarget = nextTargetBalance !== null ? equity - nextTargetBalance : null;
 
+  // Pace tracking: how many days each completed target took from the one before
+  // it, and how many days the current (not-yet-done) target has been running —
+  // lets the user see whether they're speeding up or stalling.
+  let prevCompletedAt = null;
+  const rowsMeta = rows.map(r => {
+    const info = doneMap[r.step];
+    const completedAt = info?.done ? info.completedAt : null;
+    const daysTaken = (completedAt && prevCompletedAt) ? daysBetween(prevCompletedAt, completedAt) : null;
+    if (completedAt) prevCompletedAt = completedAt;
+    return { ...r, completedAt, daysTaken };
+  });
+  const lastCompletedAt = [...rowsMeta].reverse().find(r => r.completedAt)?.completedAt || null;
+  const daysOnCurrent = (nextStep && lastCompletedAt) ? daysBetween(lastCompletedAt, new Date().toISOString()) : null;
+  const paceGaps = rowsMeta.filter(r => r.daysTaken != null).map(r => r.daysTaken);
+  const avgPace = paceGaps.length ? (paceGaps.reduce((a,b)=>a+b,0) / paceGaps.length) : null;
+
   return (
     <div>
       <div style={{textAlign:"center",marginBottom:24}}>
@@ -2244,6 +2275,10 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
           />
         )}
         <StatCard label="Final Target" value={money(rows[rows.length-1].balance)} sub="At step 50"/>
+        <StatCard label="Avg Pace" value={avgPace!=null ? `${avgPace.toFixed(1)}d` : "—"} sub="Per completed target"/>
+        {nextStep && (
+          <StatCard label="Current Target Age" value={daysOnCurrent!=null ? `${daysOnCurrent}d` : "—"} sub={`Since target ${lastDone} completed`} color={GOLD}/>
+        )}
       </div>
 
       <div style={{...styles.card, padding:0, overflow:"hidden"}}>
@@ -2258,18 +2293,27 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
                 <th style={tgTh}>#</th>
                 <th style={tgTh}>Gain (10%)</th>
                 <th style={tgTh}>Balance</th>
+                <th style={tgTh}>Completed</th>
+                <th style={tgTh}>Pace</th>
                 <th style={{...tgTh,textAlign:"center"}}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => {
+              {rowsMeta.map(r => {
                 const done = !!doneMap[r.step]?.done;
                 const isBusy = busy === r.step;
+                const isCurrent = r.step === nextStep;
                 return (
                   <tr key={r.step} style={{borderBottom:"1px solid #14223a",background: done?"rgba(212,184,110,0.04)":"transparent"}}>
                     <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:done?GOLD:"#8b9bb8",fontWeight:700,width:42}}>{String(r.step).padStart(2,"0")}</td>
                     <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:G}}>+{money(r.gain)}</td>
                     <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",color:"#eee0bf",fontWeight:600}}>{money(r.balance)}</td>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color: done?"#cec2a3":(isCurrent?"#7a8aa8":"#3d4c68")}}>
+                      {done ? fmtShortDate(r.completedAt) : (isCurrent ? "In progress" : "—")}
+                    </td>
+                    <td style={{...tgTd,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color: done?"#8b9bb8":(isCurrent?GOLD:"#3d4c68")}}>
+                      {done ? (r.daysTaken!=null ? `${r.daysTaken}d` : "—") : (isCurrent && daysOnCurrent!=null ? `${daysOnCurrent}d so far` : "—")}
+                    </td>
                     <td style={{...tgTd,textAlign:"center",width:90}}>
                       <button disabled={isBusy} onClick={()=>toggle(r.step)} style={{
                         background: done?"rgba(212,184,110,0.15)":"transparent",
@@ -2291,18 +2335,418 @@ function TargetPage({ requireUnlock, showToast, ledger = [], trades = [] }) {
   );
 }
 
+// Subtle pointer-tracked 3D tilt + light sheen for stat/KPI cards — a cheap
+// way to give the flat dashboard cards a "premium" physical feel. Transform
+// is written directly to the DOM node (not React state) so it stays smooth
+// under fast mouse movement instead of re-rendering on every pixel.
+function TiltCard({ children, style }) {
+  const ref = useRef(null);
+  const glowRef = useRef(null);
+
+  const onMove = (e) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    const rx = (py - 0.5) * -7;
+    const ry = (px - 0.5) * 7;
+    el.style.transform = `perspective(700px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`;
+    if (glowRef.current) {
+      glowRef.current.style.background = `radial-gradient(circle at ${px*100}% ${py*100}%, rgba(198,164,76,0.16), transparent 55%)`;
+      glowRef.current.style.opacity = "1";
+    }
+  };
+  const onLeave = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.transform = "perspective(700px) rotateX(0deg) rotateY(0deg)";
+    if (glowRef.current) glowRef.current.style.opacity = "0";
+  };
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      style={{
+        position:"relative", transition:"transform 0.35s cubic-bezier(.22,1,.36,1)",
+        transformStyle:"preserve-3d", willChange:"transform", ...style,
+      }}
+    >
+      <div ref={glowRef} style={{
+        position:"absolute", inset:0, borderRadius:"inherit", pointerEvents:"none",
+        opacity:0, transition:"opacity 0.25s",
+      }}/>
+      {children}
+    </div>
+  );
+}
+
 function StatCard({ label, value, sub, color }) {
   return (
-    <div style={{...styles.kpiCard}}>
+    <TiltCard style={styles.kpiCard}>
       <div style={styles.kpiLabel}>{label}</div>
       <div style={{...styles.kpiValue, fontSize:20, color:color||"#eee0bf"}}>{value}</div>
       <div style={styles.kpiSub}>{sub}</div>
-    </div>
+    </TiltCard>
   );
 }
 
 const tgTh = {textAlign:"left",padding:"10px 14px",fontSize:9,color:"#4a5a78",letterSpacing:1,textTransform:"uppercase",fontFamily:"'JetBrains Mono',monospace",borderBottom:"1px solid #1c2c45",whiteSpace:"nowrap"};
 const tgTd = {padding:"11px 14px",fontSize:12};
+
+// Lightweight markdown-ish renderer for the Notes preview pane. HTML is escaped
+// first, then a small set of our own safe tags is layered on — never trust
+// raw content into innerHTML before escaping it.
+function escapeHtml(s) {
+  return String(s||"")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function renderNoteMarkdown(raw) {
+  const lines = String(raw||"").split("\n");
+  const out = [];
+  let inList = false;
+  const closeList = () => { if (inList) { out.push("</ul>"); inList = false; } };
+  for (const rawLine of lines) {
+    let line = escapeHtml(rawLine);
+    line = line.replace(/`([^`]+)`/g, '<code style="background:#0e1a2e;padding:1px 5px;border-radius:4px;font-family:\'JetBrains Mono\',monospace;font-size:0.92em;">$1</code>');
+    line = line.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f2e6c4;">$1</strong>');
+    line = line.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    line = line.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#c6a44c;">$1</a>');
+
+    const heading = rawLine.match(/^(#{1,3})\s+/);
+    const bullet = rawLine.match(/^-\s+/);
+    if (heading) {
+      closeList();
+      const level = heading[1].length + 2;
+      const text = line.replace(/^#{1,3}\s+/, "");
+      out.push(`<h${level} style="margin:${level===3?"16px 0 8px":"10px 0 6px"};font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;color:#eee0bf;">${text}</h${level}>`);
+    } else if (bullet) {
+      if (!inList) { out.push('<ul style="margin:4px 0 10px;padding-left:20px;">'); inList = true; }
+      out.push(`<li style="margin-bottom:5px;line-height:1.6;">${line.replace(/^-\s+/, "")}</li>`);
+    } else if (rawLine.trim() === "") {
+      closeList();
+      out.push('<div style="height:10px"></div>');
+    } else {
+      closeList();
+      out.push(`<p style="margin:0 0 8px;line-height:1.65;">${line}</p>`);
+    }
+  }
+  closeList();
+  return out.join("");
+}
+
+function noteTitle(content) {
+  const firstLine = String(content||"").split("\n").find(l => l.trim().length > 0);
+  if (!firstLine) return "Untitled Note";
+  const clean = firstLine.replace(/^#+\s*/, "").replace(/^-+\s*/, "").trim();
+  return clean.length > 64 ? clean.slice(0, 64) + "…" : (clean || "Untitled Note");
+}
+function noteSnippet(content) {
+  const lines = String(content||"").split("\n").filter(l => l.trim().length > 0);
+  return (lines[1] || "").trim().slice(0, 90);
+}
+function timeAgo(iso) {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function NotesPage({ requireUnlock, showToast }) {
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeId, setActiveId] = useState(null);
+  const [draftContent, setDraftContent] = useState("");
+  const [search, setSearch] = useState("");
+  const [mode, setMode] = useState("edit"); // edit | preview
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
+  const [busyNew, setBusyNew] = useState(false);
+  const activeIdRef = useRef(null);
+  const pendingRef = useRef(null);
+  const saveTimer = useRef(null);
+  const textareaRef = useRef(null);
+
+  const persist = async (id, content) => {
+    setSaveState("saving");
+    try {
+      const r = await authFetch("/api/notes", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, content }),
+      });
+      if (!r.ok) throw new Error("api " + r.status);
+      const updatedAt = new Date().toISOString();
+      setNotes(prev => {
+        const idx = prev.findIndex(n => n.id === id);
+        const next = [...prev];
+        if (idx >= 0) next[idx] = { ...next[idx], content, updatedAt };
+        else next.unshift({ id, content, updatedAt });
+        return next.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      });
+      pendingRef.current = null;
+      if (activeIdRef.current === id) setSaveState("saved");
+    } catch (e) {
+      console.error("note save failed:", e);
+      if (activeIdRef.current === id) setSaveState("idle");
+      showToast && showToast("Note save failed — will retry on next edit", "err");
+    }
+  };
+
+  const flushSave = () => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    const p = pendingRef.current;
+    if (p) persist(p.id, p.content);
+  };
+
+  const scheduleSave = (id, content) => {
+    pendingRef.current = { id, content };
+    setSaveState("saving");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const p = pendingRef.current;
+      if (p) persist(p.id, p.content);
+    }, 900);
+  };
+
+  const load = async () => {
+    try {
+      const r = await authFetch("/api/notes", { cache: "no-store" });
+      if (!r.ok) throw new Error("api " + r.status);
+      const list = await r.json();
+      setNotes(list);
+      if (list.length && !activeIdRef.current) {
+        activeIdRef.current = list[0].id;
+        setActiveId(list[0].id);
+        setDraftContent(list[0].content || "");
+      }
+    } catch (e) { console.warn("notes load failed:", e); }
+    setLoading(false);
+  };
+  useEffect(() => {
+    load();
+    const id = setInterval(load, 25000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", onVisible);
+      flushSave();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectNote = (note) => {
+    if (note.id === activeIdRef.current) return;
+    flushSave();
+    activeIdRef.current = note.id;
+    setActiveId(note.id);
+    setDraftContent(note.content || "");
+    setSaveState("idle");
+    setMode("edit");
+  };
+
+  const onChangeContent = (e) => {
+    const val = e.target.value;
+    setDraftContent(val);
+    scheduleSave(activeId, val);
+  };
+
+  const createNote = () => requireUnlock(async () => {
+    if (busyNew) return;
+    setBusyNew(true);
+    flushSave();
+    const id = `n-${Date.now()}`;
+    try {
+      const r = await authFetch("/api/notes", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, content: "" }),
+      });
+      if (!r.ok) throw new Error("api " + r.status);
+      const note = { id, content: "", updatedAt: new Date().toISOString() };
+      setNotes(prev => [note, ...prev]);
+      activeIdRef.current = id;
+      setActiveId(id);
+      setDraftContent("");
+      setSaveState("idle");
+      setSearch("");
+      setMode("edit");
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    } catch (e) {
+      console.error(e);
+      showToast && showToast("Couldn't create note: " + (e.message || "error"), "err");
+    } finally { setBusyNew(false); }
+  });
+
+  const deleteNote = (id) => requireUnlock(async () => {
+    if (!confirm("Delete this note? This can't be undone.")) return;
+    try {
+      const r = await authFetch(`/api/notes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("api " + r.status);
+      setNotes(prev => {
+        const next = prev.filter(n => n.id !== id);
+        if (activeIdRef.current === id) {
+          const nextActive = next[0] || null;
+          activeIdRef.current = nextActive?.id || null;
+          setActiveId(nextActive?.id || null);
+          setDraftContent(nextActive?.content || "");
+          setSaveState("idle");
+        }
+        return next;
+      });
+      showToast && showToast("Note deleted", "ok");
+    } catch (e) {
+      console.error(e);
+      showToast && showToast("Delete failed: " + (e.message || "error"), "err");
+    }
+  });
+
+  const wrapSelection = (before, after = before) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const val = draftContent;
+    const selected = val.slice(start, end) || "text";
+    const next = val.slice(0, start) + before + selected + after + val.slice(end);
+    setDraftContent(next);
+    scheduleSave(activeId, next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = start + before.length;
+      ta.selectionEnd = start + before.length + selected.length;
+    });
+  };
+  const insertLinePrefix = (prefix) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const val = draftContent;
+    const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+    const next = val.slice(0, lineStart) + prefix + val.slice(lineStart);
+    setDraftContent(next);
+    scheduleSave(activeId, next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = start + prefix.length;
+    });
+  };
+
+  const filtered = notes.filter(n => !search.trim() || (n.content || "").toLowerCase().includes(search.trim().toLowerCase()));
+  const activeNote = notes.find(n => n.id === activeId) || null;
+  const wordCount = draftContent.trim() ? draftContent.trim().split(/\s+/).length : 0;
+  const totalWords = notes.reduce((sum, n) => sum + ((n.content || "").trim() ? (n.content.trim().split(/\s+/).length) : 0), 0);
+
+  return (
+    <div>
+      <div style={{textAlign:"center",marginBottom:24}}>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontWeight:500,fontSize:30,color:"#eee0bf",letterSpacing:1,lineHeight:1.1}}>Notes</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginTop:8}}>
+          <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
+          <span style={{fontSize:10,color:GOLD,fontFamily:"'JetBrains Mono',monospace",letterSpacing:4,textTransform:"uppercase"}}>{notes.length} Saved · {totalWords} Words</span>
+          <div style={{width:40,height:1,background:GOLD,opacity:0.5}}/>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flexWrap:"wrap",gap:14,alignItems:"flex-start"}}>
+        <div style={{...styles.card, flex:"1 1 260px", minWidth:240, padding:0, overflow:"hidden"}}>
+          <div style={{padding:"12px 14px",borderBottom:"1px solid #1c2c45",display:"flex",gap:8}}>
+            <input
+              value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Search notes…"
+              style={{...styles.filterInput, flex:1, width:"auto"}}
+            />
+            <button disabled={busyNew} onClick={createNote} title="New note" style={{
+              ...styles.primaryBtn, padding:"8px 14px", fontSize:16, lineHeight:1, opacity:busyNew?0.6:1
+            }}>+</button>
+          </div>
+          <div style={{maxHeight:520,overflowY:"auto"}}>
+            {loading ? (
+              <div style={{padding:20,textAlign:"center",color:"#5a6b88",fontSize:12}}>Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div style={{padding:20,textAlign:"center",color:"#5a6b88",fontSize:12}}>
+                {notes.length === 0 ? "No notes yet — tap + to write your first one." : "No matches."}
+              </div>
+            ) : filtered.map(n => {
+              const active = n.id === activeId;
+              return (
+                <div key={n.id} onClick={()=>selectNote(n)} style={{
+                  padding:"12px 14px",borderBottom:"1px solid #14223a",cursor:"pointer",
+                  background: active ? "rgba(198,164,76,0.08)" : "transparent",
+                  borderLeft:`3px solid ${active ? GOLD : "transparent"}`,
+                }}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+                    <div style={{fontFamily:"'Manrope',sans-serif",fontWeight:700,fontSize:13,color: active ? "#f2e6c4" : "#cec2a3",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                      {noteTitle(n.content)}
+                    </div>
+                    <span style={{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace",flexShrink:0}}>{timeAgo(n.updatedAt)}</span>
+                  </div>
+                  {noteSnippet(n.content) && (
+                    <div style={{fontSize:11,color:"#5a6b88",marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{noteSnippet(n.content)}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{...styles.card, flex:"3 1 420px", minWidth:280, padding:0, overflow:"hidden", display:"flex", flexDirection:"column"}}>
+          {!activeNote ? (
+            <div style={{padding:"60px 20px",textAlign:"center",color:"#5a6b88",fontSize:13}}>
+              Select a note, or tap + to start writing.
+            </div>
+          ) : (
+            <>
+              <div style={{padding:"10px 14px",borderBottom:"1px solid #1c2c45",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <button onClick={()=>wrapSelection("**")} title="Bold" style={{...styles.toggleBtn,padding:"6px 11px",fontWeight:800}}>B</button>
+                <button onClick={()=>wrapSelection("*")} title="Italic" style={{...styles.toggleBtn,padding:"6px 11px",fontStyle:"italic"}}>i</button>
+                <button onClick={()=>wrapSelection("`")} title="Code" style={{...styles.toggleBtn,padding:"6px 11px",fontFamily:"'JetBrains Mono',monospace"}}>{"</>"}</button>
+                <button onClick={()=>insertLinePrefix("- ")} title="Bullet" style={{...styles.toggleBtn,padding:"6px 11px"}}>•</button>
+                <button onClick={()=>insertLinePrefix("# ")} title="Heading" style={{...styles.toggleBtn,padding:"6px 11px"}}>H</button>
+                <div style={{width:1,height:20,background:"#1c2c45"}}/>
+                <button onClick={()=>setMode(mode==="edit"?"preview":"edit")} style={{
+                  ...styles.toggleBtn,padding:"6px 12px",
+                  color: mode==="preview" ? GOLD : "#8b9bb8",
+                  borderColor: mode==="preview" ? GOLD+"55" : "#26385a",
+                }}>{mode==="edit" ? "Preview" : "Edit"}</button>
+                <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:10,color:"#4a5a78",fontFamily:"'JetBrains Mono',monospace"}}>
+                    {saveState==="saving" ? "Saving…" : saveState==="saved" ? "Saved ✓" : `${wordCount} word${wordCount!==1?"s":""}`}
+                  </span>
+                  <button onClick={()=>deleteNote(activeNote.id)} title="Delete note" style={{...styles.toggleBtn,padding:"6px 10px",color:R,borderColor:R+"55"}}>🗑</button>
+                </div>
+              </div>
+              <div style={{flex:1,padding:"16px 18px",minHeight:420}}>
+                {mode === "edit" ? (
+                  <textarea
+                    ref={textareaRef}
+                    value={draftContent}
+                    onChange={onChangeContent}
+                    placeholder="Start writing… saved automatically."
+                    style={{
+                      width:"100%",minHeight:420,resize:"vertical",background:"transparent",border:"none",outline:"none",
+                      color:"#eee0bf",fontSize:14,lineHeight:1.65,fontFamily:"'Manrope',sans-serif",
+                    }}
+                  />
+                ) : (
+                  <div dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(draftContent) || '<p style="color:#5a6b88">Nothing to preview yet.</p>' }} />
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Leverage presets: label shown to user → margin % stored internally
 // e.g. 10× leverage means you put up 10% of the buy price as margin
@@ -2846,11 +3290,11 @@ function PortfolioPage({ requireUnlock, showToast, ledger = [], trades = [], onC
             { label: "Return %", value: fmtN(totals.glPct) + "%", color: pnlColor(totals.glPct), sub: `${openHoldings.length} open · ${closedHoldings.length} closed` },
             { label: "Available Balance", value: fmtUSD(accountEquity - totals.inv - Math.abs(totals.gl)), color: GOLD, sub: "equity − invested − P&L" },
           ].map(k => (
-            <div key={k.label} style={styles.kpiCard}>
+            <TiltCard key={k.label} style={styles.kpiCard}>
               <div style={styles.kpiLabel}>{k.label}</div>
               <div style={{ ...styles.kpiValue, fontSize: 18, color: k.color }}>{k.value}</div>
               {k.sub && <div style={styles.kpiSub}>{k.sub}</div>}
-            </div>
+            </TiltCard>
           ))}
         </div>
       )}

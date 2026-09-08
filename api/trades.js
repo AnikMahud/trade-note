@@ -35,6 +35,12 @@ export default async function handler(req, res) {
     // sees its own rows (userScopeFilter), so this loops every configured
     // account server-side and returns just week/month P&L + trade counts —
     // no symbols, notes, or other per-trade detail leaks across accounts.
+    //
+    // Only trades from the current week/month window are fetched (Notion-side
+    // date filter), and accounts are queried in parallel with per-account error
+    // isolation — pulling every account's entire trade history sequentially
+    // used to risk the serverless timeout as history/accounts grew, which
+    // silently blanked the whole leaderboard on the frontend.
     if (req.method === "GET" && req.query.leaderboard) {
       const now = new Date();
       const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
@@ -42,31 +48,42 @@ export default async function handler(req, res) {
       const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(23,59,59,999);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
+      // Week can start in the previous month near a month boundary — fetch from
+      // whichever is earlier so early-month weeks aren't undercounted.
+      const rangeStart = weekStart < monthStart ? weekStart : monthStart;
+      const rangeStartStr = rangeStart.toISOString().slice(0, 10);
 
-      const board = [];
-      for (const acc of listAccounts()) {
-        const all = [];
-        let cursor;
-        do {
-          const r = await notion.databases.query({
-            database_id: DB,
-            start_cursor: cursor,
-            page_size: 100,
-            filter: userScopeFilter(acc.tag),
-          });
-          all.push(...r.results);
-          cursor = r.has_more ? r.next_cursor : null;
-        } while (cursor);
+      const board = await Promise.all(listAccounts().map(async (acc) => {
+        try {
+          const all = [];
+          let cursor;
+          do {
+            const r = await notion.databases.query({
+              database_id: DB,
+              start_cursor: cursor,
+              page_size: 100,
+              filter: { and: [
+                userScopeFilter(acc.tag),
+                { property: "Date", date: { on_or_after: rangeStartStr } },
+              ] },
+            });
+            all.push(...r.results);
+            cursor = r.has_more ? r.next_cursor : null;
+          } while (cursor);
 
-        let weekPnl = 0, weekTrades = 0, monthPnl = 0, monthTrades = 0;
-        for (const t of all.map(pageToTrade)) {
-          const d = new Date(t.date + "T12:00:00");
-          const pnl = parseFloat(t.pnl) || 0;
-          if (d >= weekStart && d <= weekEnd) { weekPnl += pnl; weekTrades++; }
-          if (d >= monthStart && d <= monthEnd) { monthPnl += pnl; monthTrades++; }
+          let weekPnl = 0, weekTrades = 0, monthPnl = 0, monthTrades = 0;
+          for (const t of all.map(pageToTrade)) {
+            const d = new Date(t.date + "T12:00:00");
+            const pnl = parseFloat(t.pnl) || 0;
+            if (d >= weekStart && d <= weekEnd) { weekPnl += pnl; weekTrades++; }
+            if (d >= monthStart && d <= monthEnd) { monthPnl += pnl; monthTrades++; }
+          }
+          return { tag: acc.tag, label: acc.label, weekPnl, weekTrades, monthPnl, monthTrades };
+        } catch (e) {
+          console.error(`leaderboard: account "${acc.tag}" failed:`, e.message);
+          return { tag: acc.tag, label: acc.label, weekPnl: 0, weekTrades: 0, monthPnl: 0, monthTrades: 0, error: true };
         }
-        board.push({ tag: acc.tag, label: acc.label, weekPnl, weekTrades, monthPnl, monthTrades });
-      }
+      }));
       board.sort((a, b) => b.monthPnl - a.monthPnl);
       return res.status(200).json(board);
     }

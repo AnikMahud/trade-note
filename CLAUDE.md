@@ -28,14 +28,17 @@ All under parent page `35c052c8-3594-8035-900b-cbe285292b6c`. All shared with in
 | Targets | `NOTION_TARGETS_DB_ID` | Step (title), Done (checkbox), CompletedAt (date), Note |
 | Strategy | `NOTION_STRATEGY_DB_ID` | ID (title), Type (select: Rule/Lesson), Order, Text |
 | Ledger | `NOTION_LEDGER_DB_ID` | ID (title), Date, Type (select: Starting/Deposit/Withdrawal/Adjustment), Amount, Note |
+| Notes | `NOTION_NOTES_DB_ID` | ID (title), Content (rich text, long notes chunked across multiple rich_text entries — see `api/notes.js`), UpdatedAt (date) |
 
 To inspect DB IDs in a session: `curl -H "Authorization: Bearer $NOTION_TOKEN" -H "Notion-Version: 2022-06-28" "https://api.notion.com/v1/search" -d '{"filter":{"property":"object","value":"database"}}'`.
+
+**Notes DB one-time setup:** unlike `ensureUserProperty`/`ensureLevPctProperty`, there's no code path that creates a brand-new Notion *database* — only new *properties* on an existing one. If `NOTION_NOTES_DB_ID` isn't set yet, `api/notes.js` 500s cleanly and the Notes page shows nothing gets saved; someone with Notion access has to create the DB (Title-type `ID`, rich-text `Content`, date `UpdatedAt`), share it with the `Trade Note` integration, and add the env var + redeploy, same recipe as the README's original Trades DB setup.
 
 ## Env vars (live in Vercel project)
 
 Server-side (no `VITE_` prefix; only visible to functions):
 - `NOTION_TOKEN` — integration secret, `ntn_...`
-- `NOTION_DATABASE_ID`, `NOTION_TARGETS_DB_ID`, `NOTION_STRATEGY_DB_ID`, `NOTION_LEDGER_DB_ID`, `NOTION_PORTFOLIO_DB_ID` — 32-char hex, no dashes
+- `NOTION_DATABASE_ID`, `NOTION_TARGETS_DB_ID`, `NOTION_STRATEGY_DB_ID`, `NOTION_LEDGER_DB_ID`, `NOTION_PORTFOLIO_DB_ID`, `NOTION_NOTES_DB_ID` — 32-char hex, no dashes
 - `AUTH_USERS` — JSON array of accounts: `[{"username","password","tag","label"}, ...]`. **First entry is the primary/legacy account** — any existing Notion row with no `User` property is treated as theirs (see Multi-user below).
 - `AUTH_TOKEN_SECRET` — random secret (`openssl rand -hex 32`) used to HMAC-sign session tokens issued by `api/auth.js`.
 
@@ -57,13 +60,14 @@ Two independent accounts, each with their own username + password, each seeing o
 
 - `index.html` — viewport meta + iOS PWA tags + favicon link
 - `src/main.jsx` — React entry
-- `src/App.jsx` — entire UI (~1700 lines). Single component tree. Views: dashboard, journal, add, edit, detail, strategy, target.
+- `src/App.jsx` — entire UI (~3600 lines). Single component tree. Views: dashboard, journal, add, edit, detail, strategy, target, portfolio, notes.
 - `src/storage.js` — frontend ↔ `/api/trades` adapter, screenshot compression
 - `api/trades.js` — Trades CRUD; upserts by ID (title) field
 - `api/upload.js` — base64 dataURL → Notion file_upload → returns id. Used before `/api/trades` POST when there's a fresh screenshot.
 - `api/targets.js` — Targets CRUD (50 compound steps, completion state)
 - `api/strategy.js` — Strategy rules + lessons CRUD
 - `api/ledger.js` — Account equity ledger CRUD
+- `api/notes.js` — Notes CRUD, one free-text note per row, long content chunked across Notion rich_text entries
 - `public/logo.webp` — 152KB. Brand mark used in header + login screen.
 - `public/favicon.png`, `public/apple-touch-icon.png`
 - `vercel.json` — framework=vite, build=npm run build, output=dist
@@ -120,13 +124,15 @@ npm run dev           # http://localhost:3000
 
 ## Feature inventory (so future agents know what exists)
 
-- Dashboard: KPIs, equity curve, daily P&L, advanced metrics, top symbols, setup perf, **streak warning banner**, **calendar heatmap**, **account equity card**
+- Dashboard: KPIs (now wrapped in `TiltCard` — pointer-tracked 3D hover), equity curve (gradient area fill under the line), daily P&L, advanced metrics, top symbols, setup perf, **streak warning banner**, **calendar heatmap**, **account equity card**, cross-account **leaderboard** (week/month P&L per account, resilient to one account's data failing — see api/trades.js)
 - Journal: filterable table + **CSV export** button
 - Trade detail: gallery + lightbox with arrow nav
 - Add/Edit Trade: **pre-trade checklist** (mandatory checkboxes from Strategy rules before Save), multi-image upload, screenshot compression
 - Strategy: editable rules + lessons (via Notion `Strategy` DB), SVG setup diagram (HIGH/OTE/DEMAND/TP), key-reminder banner
-- Target: 50-step compound table with checkboxes, persisted to Notion `Targets` DB
+- Target: 50-step compound table with checkboxes, persisted to Notion `Targets` DB. Each row shows its **completion date** and **pace** (days since the previous completed step); the current in-progress step shows days elapsed since the last completion. Stat row includes Avg Pace + Current Target Age.
 - Account equity: Ledger entries (Starting/Deposit/Withdrawal/Adjustment) + computed equity, history accordion
+- Notes: free-text notes list (Notion `Notes` DB, needs `NOTION_NOTES_DB_ID` — see Notion databases table), one note per row, auto-titled from its first line, autosaved ~900ms after typing stops (debounced, flushed immediately on switching notes/unmount), search box, lightweight markdown toolbar (bold/italic/code/bullet/heading) + Edit/Preview toggle. Preview renders through `renderNoteMarkdown()` in App.jsx — always escapes HTML before applying markdown, do not change that order.
+- `TiltCard` (App.jsx, near `StatCard`): reusable pointer-tracked 3D tilt + gold sheen wrapper used by dashboard KPIs, Target `StatCard`s, and Portfolio KPIs. Writes `transform` directly to the DOM node (not React state) to stay smooth.
 - PWA install: viewport + apple-touch-icon set
 
 ## Commit style observed in history
